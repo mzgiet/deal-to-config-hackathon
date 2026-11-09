@@ -4,3 +4,12 @@
 node_modules/
 .DS_Store
 _internal/
+
+# Salesforce (salesforce/)
+.sf/
+.sfdx/
+.localdevserver/
+**/.sf/
+**/.sfdx/
+*.auth
+authUrl*.txt
