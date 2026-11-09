@@ -154,9 +154,9 @@ runs end to end against the stub.
 - **The Salesforce sandbox** and its OAuth credentials are not shared. Without
   them the builder uses the stub. The record mapping is documented in
   [docs/revenue-cloud-mapping.md](docs/revenue-cloud-mapping.md).
-- **The Salesforce side** (Apex endpoint and configurator UI) is maintained
-  separately by Dawid Rymarzak. See the Context Builder project for its
-  location.
+- **The Salesforce side** (Apex endpoints, Revenue Cloud metadata and the
+  configurator UI) is in [`salesforce/`](salesforce/README.md), with its
+  deploy steps and one-off org setup.
 
 ## Design choices
 

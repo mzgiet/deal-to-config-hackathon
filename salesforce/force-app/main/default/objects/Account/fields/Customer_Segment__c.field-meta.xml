@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Customer_Segment__c</fullName>
+    <description>Whether the customer buys as a business or a consumer; matched against Product2.Audience__c. The org has no person accounts.</description>
+    <label>Customer Segment</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Business</fullName>
+                <default>false</default>
+                <label>Business</label>
+            </value>
+            <value>
+                <fullName>Consumer</fullName>
+                <default>false</default>
+                <label>Consumer</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

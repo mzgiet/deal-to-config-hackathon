@@ -1,0 +1,12 @@
+{
+  "requestId": "req_mf3k_001",
+  "rawRequest": "They want the Cloud Analytics licence at $40 per user per month, 10% off above 100 users and 15% above 500. Business customers only.",
+  "extracted": {
+    "products": [{ "name": "Cloud Analytics licence", "basePrice": 40, "currency": "USD" }],
+    "pricing": { "type": "volume-tier", "tiers": [{ "from": 100, "discountPct": 10 }, { "from": 500, "discountPct": 15 }] },
+    "availability": "B2B"
+  },
+  "summary": "Cloud Analytics licence at $40 per user per month with 10% off from 100 users and 15% off from 500 users, for business customers",
+  "assumptions": ["Price is per user per month"],
+  "target": "revenue-cloud"
+}

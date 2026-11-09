@@ -1,0 +1,15 @@
+{
+  "requestId": "req_mf3k_002",
+  "rawRequest": "Starter Hardware Kit ($200) and Onboarding Service ($500) sold together as one package, 5% off the package, B2B.",
+  "extracted": {
+    "products": [
+      { "name": "Starter Hardware Kit", "basePrice": 200, "currency": "USD" },
+      { "name": "Onboarding Service", "basePrice": 500, "currency": "USD" }
+    ],
+    "pricing": { "type": "bundle", "tiers": [{ "from": 1, "discountPct": 5 }] },
+    "availability": "B2B"
+  },
+  "summary": "Starter Hardware Kit and Onboarding Service sold as one package with 5% off",
+  "assumptions": [],
+  "target": "revenue-cloud"
+}

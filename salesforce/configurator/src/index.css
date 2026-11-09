@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-syn-bg text-syn-text font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track { background: #0E1219; }
+  ::-webkit-scrollbar-thumb { background: #1F2845; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #2D3D6B; }
+}
+
+@layer utilities {
+  .gradient-text {
+    background: linear-gradient(135deg, #FF5733, #8B3DFF);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-border {
+    position: relative;
+  }
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, #FF5733, #8B3DFF);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .glass {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background: rgba(14, 18, 25, 0.85);
+    border: 1px solid rgba(31, 40, 69, 0.6);
+  }
+
+  .card-glow {
+    box-shadow: 0 0 0 1px rgba(255, 87, 51, 0);
+    transition: box-shadow 0.3s ease;
+  }
+  .card-glow:hover {
+    box-shadow: 0 0 24px rgba(255, 87, 51, 0.12), 0 0 0 1px rgba(45, 61, 107, 0.6);
+  }
+}

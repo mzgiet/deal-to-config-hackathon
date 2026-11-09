@@ -1,0 +1,12 @@
+{
+  "requestId": "req_ts05_001",
+  "rawRequest": "Cloud Analytics licence at 40 euro per user, no discounts.",
+  "extracted": {
+    "products": [{ "name": "Cloud Analytics licence EU", "basePrice": 40, "currency": "EUR" }],
+    "pricing": { "type": "flat", "tiers": [] },
+    "availability": "both"
+  },
+  "summary": "Cloud Analytics licence at 40 EUR per user",
+  "assumptions": [],
+  "target": "revenue-cloud"
+}
