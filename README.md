@@ -82,6 +82,8 @@ docs/
   slack-setup.md                 create the Slack app and run locally
   salesforce-integration.md      the endpoint, contract, auth and a curl test
   revenue-cloud-mapping.md       which Revenue Cloud records a request needs
+  written-summary.md             hackathon written summary
+  productionising-note.md        what it would take to make this real
 manifest.yaml         Slack app manifest
 ```
 
