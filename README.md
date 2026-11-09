@@ -181,6 +181,6 @@ the configuration is built in a sandbox org. No client data is used anywhere.
 | Michał Zgiet | Slack orchestrator, Claude integration, extraction skill |
 | Dawid Rymarzak | Salesforce records, Apex endpoint, configurator UI |
 | Demi Nicolaou | Business problem and positioning, skill review |
-| Amit Dhakre | Development |
+| Amit Dhakre | Testing, realistic sales-rep inputs for the extraction |
 
 Built with Claude Code.
