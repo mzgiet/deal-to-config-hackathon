@@ -235,7 +235,7 @@ function VolumeTierCard({ product, side }: { product: RequestProduct; side: Side
               min={1}
               value={quantity}
               onChange={(e) => setQuantity(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
-              className="w-24 bg-syn-card border border-syn-border rounded-lg px-2 py-1 text-right text-syn-text tabular-nums text-sm focus:outline-none focus:border-syn-border-bright"
+              className="w-24 bg-syn-card border border-syn-border rounded-lg px-2 py-1 text-right text-syn-text tabular-nums text-sm focus:outline-none focus:border-syn-accent"
             />
           </div>
           <input

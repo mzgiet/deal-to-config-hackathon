@@ -11,14 +11,11 @@ export default function TopNav() {
     <nav className="sticky top-0 z-50 glass border-b border-syn-border shrink-0">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center gap-4">
 
-        {/* Synechron logo mark */}
+        {/* Synechron wordmark (text only, no monogram) */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-syn-gradient flex items-center justify-center shrink-0">
-            <span className="text-white font-bold text-sm tracking-tight">S</span>
-          </div>
           <div className="leading-none">
             <div className="text-syn-text font-semibold text-sm tracking-wider">SYNECHRON</div>
-            <div className="text-syn-muted text-[10px] tracking-widest uppercase">Telco Catalog</div>
+            <div className="text-syn-accent text-[10px] font-semibold tracking-[0.15em] uppercase mt-1">Telco Catalog</div>
           </div>
         </div>
 
