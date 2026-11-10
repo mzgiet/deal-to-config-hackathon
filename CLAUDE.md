@@ -128,6 +128,17 @@ npm start
 
 Then type `/configure` in a channel the bot is in.
 
+The configurator (`salesforce/configurator/`) builds and deploys separately; see
+`salesforce/README.md`:
+
+```bash
+cd salesforce/configurator
+npm install --legacy-peer-deps      # plain install fails: the UI Bundle plugin wants React 19, the app uses 18
+SF_ORG=<alias> npm run deploy       # SF_ORG optional; without it the CLI's default org is used
+```
+
+Restart `npm run dev` after editing `tailwind.config.js`, otherwise it serves stale styles.
+
 ## Current technical choices and why
 
 These are defaults with reasons, not prohibitions.

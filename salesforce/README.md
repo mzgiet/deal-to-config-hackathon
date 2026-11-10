@@ -119,7 +119,10 @@ sf org assign permset --name SalesCopilotAccess --name RevenueConfiguratorAccess
 sf apex run --file scripts/apex/salescopilot-seed-customers.apex -o <alias>   # optional: fictional customers
 ```
 
-Rebuilding the configurator: `cd configurator && npm install && npm run deploy`.
+Rebuilding the configurator: `cd configurator && npm install --legacy-peer-deps && npm run deploy`
+(`npm run open` opens it). Both use the CLI's default org; prefix them with `SF_ORG=<alias>` to target a specific
+one. `--legacy-peer-deps` is needed because the UI Bundle plugin declares a React 19 peer while the app uses
+React 18; plain `npm install` fails with `ERESOLVE`.
 
 An active pricing procedure version cannot be redeployed. Deactivate it in Pricing Procedure Builder (or set
 `ExpressionSetVersion.IsActive = false`), deploy, then activate it again.
