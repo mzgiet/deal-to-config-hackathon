@@ -61,6 +61,12 @@ Orchestrator sends:
 }
 ```
 
+Constraints from Dawid's validation (`SalesCopilotRequestWrapper.validate()`): USD
+only (single-currency org), bundles carry no discount (`tiers: []`), tiers need whole
+`from` >= 1 and `discountPct` in (0, 100]. `normalizeAnalysis()` in `src/contract.js`
+enforces these before the card is rendered, so the card shows what will be built. See
+`salesforce/README.md` "Known limitations".
+
 He returns:
 
 ```json
@@ -98,7 +104,7 @@ _internal/            git-ignored team notes (history, handover, plan)
 ```
 
 The flow: `/configure` opens a modal → rep describes the request (example chips,
-optional who-buys/currency) → Claude extracts and may ask up to 3 questions in a
+optional who-buys) → Claude extracts and may ask up to 3 questions in a
 second modal, pre-filled with its best guess → final pass → card in the channel
 → optional **Adjust** (rep describes a change in plain words, the card is revised in
 place, as often as needed) → **Build it** → `buildConfiguration()` → link in the thread.

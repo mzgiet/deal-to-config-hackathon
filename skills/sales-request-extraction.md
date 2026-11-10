@@ -21,7 +21,9 @@ terms and they do not know what you need. Your job is to work that out for them.
 used. For each one:
 
 - `basePrice`: the price per unit, as a number
-- `currency`: `USD`, `EUR`, `GBP` or `PLN`
+- `currency`: always `USD` (the Salesforce org is single-currency). If the rep
+  gives a price in another currency, keep the number as given, set `USD`, and add
+  an assumption, e.g. "Client quoted 40 EUR; entered as 40 USD - confirm conversion"
 
 **Pricing model.** Pick the one that best describes the deal:
 
@@ -31,13 +33,15 @@ used. For each one:
 | "cheaper for bigger orders", "10% off above 500", "volume discount", "tiers" | `volume-tier` |
 | "sold together", "package", "bundle", "A plus B as one offer" | `bundle` |
 
-If the deal is a bundle *and* has volume discounts, use `bundle` and still list
-the tiers.
+A `bundle` always has `tiers: []` - bundle discounts are not supported yet. If
+the rep asked for one, add an assumption: "The 5% bundle discount is not applied
+yet - the bundle is priced as the sum of its products".
 
-**Tiers.** For volume discounts: `from` is the quantity where the discount starts,
-`discountPct` is the discount in percent. "Above 500" means `from: 500`. A
-discount with no quantity threshold (e.g. "5% off the bundle") is a single tier
-with `from: 1`. Use an empty list only when there is no discount at all.
+**Tiers.** For volume discounts: `from` is the quantity where the discount starts
+(a whole number, at least 1), `discountPct` is the discount in percent (above 0,
+at most 100). "Above 500" means `from: 500`. A discount with no quantity threshold
+on products that are not a bundle (e.g. "5% off Product A") is `volume-tier` with
+a single tier with `from: 1`. Use an empty list for `flat` and `bundle`.
 
 **Availability.** Who can buy it: `B2B` (businesses), `B2C` (consumers) or `both`.
 
@@ -50,9 +54,9 @@ Plain business language, no Salesforce terms.
    ("maybe B") still count, but say so in `assumptions`.
 2. **The rep's explicit selections win.** If the input lists "Rep's selections",
    use them over anything you would infer.
-3. **Infer the obvious, record it.** A company in Germany suggests EUR. A sales
+3. **Infer the obvious, record it.** A sales
    team suggests B2B. When you infer, add a short line to `assumptions` in plain
-   language, e.g. "Currency assumed EUR (client is in Germany)".
+   language, e.g. "Availability assumed B2B (sold to a sales team)".
 4. **Missing price.** Never make up a price. Set `basePrice` to `0` and either ask
    (first pass) or record "Price for X to be confirmed" in `assumptions` (final
    pass).
@@ -66,7 +70,7 @@ imprecise. In priority order:
 2. The discount is too vague to turn into numbers ("cheaper for big orders")
 3. It is unclear which products are part of the deal
 
-Everything else - currency, availability, whether 500 itself counts - you
+Everything else - availability, whether 500 itself counts - you
 assume and record.
 
 How to ask:

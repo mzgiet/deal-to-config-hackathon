@@ -1,7 +1,7 @@
 /*
  * Modal views for the /configure flow.
  *
- *   intake    -> rep describes the request (+ optional who-buys / currency)
+ *   intake    -> rep describes the request (+ optional who-buys)
  *   progress  -> shown while Claude works, steps rotate
  *   questions -> Claude's follow-up questions, pre-filled with its best guess
  *   done      -> "posted to #channel"
@@ -20,7 +20,6 @@ const mrkdwn = (text) => ({ type: 'mrkdwn', text });
 const option = (value, label = value) => ({ text: plain(label.slice(0, 75)), value: value.slice(0, 150) });
 
 const AVAILABILITY = [option('B2B', 'Businesses (B2B)'), option('B2C', 'Consumers (B2C)'), option('both', 'Both')];
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'PLN'].map((c) => option(c));
 
 /* ------------------------------------------------------------------ *
  * Intake
@@ -74,7 +73,6 @@ function intakeView({ meta, text = '', hints = {}, error, version = 0 }) {
     },
     { type: 'divider' },
     selectInput('availability', 'Who buys?', AVAILABILITY, hints.availability),
-    selectInput('currency', 'Currency', CURRENCIES, hints.currency),
   );
 
   return {
@@ -114,7 +112,6 @@ function readIntake(view) {
     text: (values[requestBlock].value.value || '').trim(),
     hints: {
       availability: values.availability?.value.selected_option?.value,
-      currency: values.currency?.value.selected_option?.value,
     },
   };
 }

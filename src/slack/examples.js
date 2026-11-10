@@ -13,7 +13,7 @@ const EXAMPLES = [
   {
     label: ':package: Bundle',
     text: 'They would like the Starter Hardware Kit ($200) and the Onboarding Service ($500) sold together ' +
-      'as one package, with 5% off when bought as a bundle. B2B.',
+      'as one package. B2B.',
   },
   {
     label: ':memo: Rough call notes',

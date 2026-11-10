@@ -7,10 +7,13 @@
  * status:  draft -> ready -> building -> built | failed, or discarded
  */
 
+const crypto = require('node:crypto');
+
 const sessions = new Map();
 let counter = 0;
 // Ids end up on Salesforce records, so they must not repeat after a restart.
-const RUN = Date.now().toString(36).slice(-4);
+// (Salesforce returns the OLD link for a repeated id.)
+const RUN = crypto.randomBytes(3).toString('hex');
 
 function createSession(fields) {
   const id = `req_${RUN}_${String(++counter).padStart(3, '0')}`;

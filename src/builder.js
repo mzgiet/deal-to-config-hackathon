@@ -55,9 +55,21 @@ async function buildInSalesforce(contract) {
     sfToken = null;
     res = await call();
   }
-  if (!res.ok) throw new Error(`Salesforce returned ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(await errorMessage(res));
 
-  return res.json();
+  const result = await res.json();
+  if (result.status !== 'created') throw new Error(result.error || `Salesforce returned status "${result.status}"`);
+  return result;
+}
+
+// Dawid's endpoint explains rejections in { error }; show that, not raw JSON.
+async function errorMessage(res) {
+  const text = await res.text();
+  try {
+    const { error } = JSON.parse(text);
+    if (error) return String(error);
+  } catch { /* not JSON - fall through */ }
+  return `Salesforce returned ${res.status}: ${text}`;
 }
 
 /* ------------------------------------------------------------------ */

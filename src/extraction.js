@@ -3,12 +3,13 @@
  *
  * The prompt is the skill in skills/sales-request-extraction.md - the same
  * file that goes into Context Builder. Edit the skill, restart, done.
+ * normalizeAnalysis() then enforces Salesforce's validation rules in code.
  */
 
 const fs = require('node:fs');
 const path = require('node:path');
 const { generateJson } = require('./llm');
-const { ANALYSIS_SCHEMA } = require('./contract');
+const { ANALYSIS_SCHEMA, normalizeAnalysis } = require('./contract');
 
 const SKILL_PATH = path.join(__dirname, '..', 'skills', 'sales-request-extraction.md');
 const MAX_QUESTIONS = 3;
@@ -28,8 +29,8 @@ async function analyseRequest({ rawRequest, hints = {}, answers = [] }) {
     schema: ANALYSIS_SCHEMA,
   });
 
-  analysis.questions = finalPass ? [] : analysis.questions.slice(0, MAX_QUESTIONS);
-  return analysis;
+  const questions = finalPass ? [] : analysis.questions.slice(0, MAX_QUESTIONS);
+  return { ...normalizeAnalysis(analysis), questions };
 }
 
 /*
@@ -46,18 +47,13 @@ async function reviseAnalysis({ session, change }) {
   ].join('\n\n');
 
   const analysis = await generateJson({ system: SKILL, input, schema: ANALYSIS_SCHEMA });
-  analysis.questions = [];
-  return analysis;
+  return { ...normalizeAnalysis(analysis), questions: [] };
 }
 
 function buildInput({ rawRequest, hints = {}, answers = [] }) {
   const parts = [`Client request, as described by the sales rep:\n${rawRequest}`];
 
-  const selections = [
-    hints.availability && `Who buys: ${hints.availability}`,
-    hints.currency && `Currency: ${hints.currency}`,
-  ].filter(Boolean);
-  if (selections.length) parts.push(`Rep's selections:\n${selections.join('\n')}`);
+  if (hints.availability) parts.push(`Rep's selections:\nWho buys: ${hints.availability}`);
 
   if (answers.length) {
     parts.push(
