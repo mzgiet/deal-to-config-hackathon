@@ -108,6 +108,11 @@ Agent skills for Cursor or Claude Code that call the endpoints with the Salesfor
   services and the catalog for their segment, proposes lines with tier and discount maths, flags anything that
   needs approval and creates the quote.
 
+One more skill is for UI work rather than the endpoints:
+[`synechron-web-ui`](skills/synechron-web-ui/SKILL.md) describes the configurator's Synechron style (palette
+tokens, background gradient, yellow accent rules, typography, components, contrast). Use it for any UI change.
+Claude Code picks it up automatically through the `.claude/skills/synechron-web-ui` link at the repository root.
+
 ## Deploy to a sandbox
 
 Revenue Cloud must be enabled, with Salesforce Pricing and the Standard Price Book active.
