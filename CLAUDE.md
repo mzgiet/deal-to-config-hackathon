@@ -9,13 +9,15 @@ below has a reason attached; if the reason no longer holds, or there is a better
 option, say so and propose the change. Disagreeing with this file is expected and
 welcome. Update the file when a decision changes.
 
-Only two things are genuinely fixed: the deadline and the house rules at the bottom.
+Only one thing is genuinely fixed: the house rules at the bottom.
 
-## Deadline
+## Demo date
 
-**Live demo: Thursday 12 November.** When choosing between options, prefer the one
-that demos cleanly by then. A smaller thing that works beats a bigger thing that
-half-works — but "smaller" is a judgement call, not a ban on improvements.
+The live demo is on Thursday 12 November. That is a date, **not a constraint on
+scope**: implementation is fast, so do not cut features, push ideas to "next steps",
+or argue for the smaller option because time is short. Choose the option that makes
+the better product and demo. The one thing to protect is that the core demo path
+(below) keeps working while things change.
 
 ## What the product is
 
@@ -73,6 +75,14 @@ He returns:
 { "requestId": "req_001", "status": "created", "artifactUrl": "https://..." }
 ```
 
+That is v1. The orchestrator now sends v2, all of it already accepted by the
+Salesforce side: `sellingModel`, `pricing.appliesTo`, `bundle` (components,
+`optional`, catalog products reused by `productId`), `source.channel: "slack"`, and
+`presentation` (the customer page: headline, customer, ordered blocks;
+`src/presentation.js` enforces the Apex rules). `/quote` uses `GET customer`,
+`GET catalog` and `POST quote` (`{ account, lines, presentation }`); the endpoint
+reference is `salesforce/README.md`.
+
 ## Repo state
 
 ```
@@ -81,20 +91,27 @@ src/
   config.js           all env vars
   llm.js              the ONLY place that calls Claude: API if ANTHROPIC_API_KEY,
                       otherwise headless `claude -p` (CLAUDE_BIN)
-  extraction.js       skill + schema -> analysis (contract fields + questions)
-  contract.js         ANALYSIS_SCHEMA and toContract() for Dawid's side
-  store.js            in-memory sessions
-  builder.js          Salesforce Apex REST if SF_* set, otherwise stub
+  extraction.js       /configure: skill + catalog + schema -> analysis (+ questions)
+  contract.js         ANALYSIS_SCHEMA, normalizeAnalysis(), toContract() (v2)
+  quote.js            /quote: customer + catalog -> lines, page, not-in-catalog hand-off
+  pricing.js          quote preview (tiers, discount, totals, approval); pure
+  presentation.js     the customer page: schema part + Apex rules; shared
+  prompt-utils.js     skill loading, catalog as prompt text
+  salesforce.js       ALL Salesforce calls; salesforce-stub.js when SF_* is not set
+  store.js            in-memory sessions (kind 'build' | 'quote')
   slack/
-    configure.js      /configure -> intake modal -> progress -> questions -> card
-    card-actions.js   Build it / Discard / Open configurator
-    adjust.js         Adjust button -> modal -> Claude revises -> card updated in place
-    modal-utils.js    progress steps + safe views.update shared by configure and adjust
+    configure.js      /configure -> intake modal -> progress -> questions -> offer card
+    quote.js          /quote -> customer picker (external select) -> questions -> quote card
+    card-actions.js   Build it, Create quote, hand-off, Quote it, the "…" menu (Discard)
+    adjust.js         Adjust (both cards) -> modal -> Claude revises -> card updated in place
+    modal-utils.js    progress steps, safe views.update, posting cards
     views.js          modal views
-    card.js           the channel card, rendered from session status
-    examples.js       example requests behind the modal's chips (fictional)
+    card.js           the offer card;  quote-card.js  the quote card
+    format.js         Block Kit + money helpers; no emoji in card content
+    examples.js       example requests behind the modals' chips (fictional)
 skills/
-  sales-request-extraction.md   the extraction prompt; same file goes to Context Builder
+  sales-request-extraction.md   /configure prompt; same file goes to Context Builder
+  sales-quote-extraction.md     /quote prompt
 docs/
   slack-setup.md                 create the Slack app and run locally
   salesforce-integration.md      endpoint, contract v1/v2, auth, curl test
@@ -103,11 +120,22 @@ manifest.yaml         Slack app manifest
 _internal/            git-ignored team notes (history, handover, plan)
 ```
 
-The flow: `/configure` opens a modal → rep describes the request (example chips,
-optional who-buys) → Claude extracts and may ask up to 3 questions in a
-second modal, pre-filled with its best guess → final pass → card in the channel
-→ optional **Adjust** (rep describes a change in plain words, the card is revised in
-place, as often as needed) → **Build it** → `buildConfiguration()` → link in the thread.
+Two flows, two roles:
+
+- `/quote` (sales rep): modal with a customer picker that searches Salesforce and
+  the request → `GET customer` + `GET catalog` → Claude proposes lines from the
+  catalog and composes the customer page → quote card (priced lines, approval flag,
+  customer context) → **Create quote** → `POST quote` → customer page + quote link
+  in the thread. Anything the catalog lacks → **Send to product manager** →
+  `/configure` pre-filled.
+- `/configure` (product manager): modal → Claude extracts (with the catalog, so a
+  package can reuse products) and may ask up to 3 questions → offer card →
+  **Build it** → `POST build` → pricing refresh → configurator link and **Quote it
+  for <customer>** (hand-off) or **Quote it for a customer**.
+- **Adjust** works on both cards; Discard sits in the "…" menu.
+
+This mirrors the Salesforce side's demo scenarios (`salesforce/demo/`), which the
+Cursor channel runs through the skills in `salesforce/skills/`.
 
 ## Running it
 
@@ -126,7 +154,8 @@ npm install
 npm start
 ```
 
-Then type `/configure` in a channel the bot is in.
+Then type `/quote` or `/configure` in a channel the bot is in. After a manifest
+change (e.g. a new command), update the app from `manifest.yaml` and reinstall it.
 
 The configurator (`salesforce/configurator/`) builds and deploys separately; see
 `salesforce/README.md`:

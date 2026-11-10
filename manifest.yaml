@@ -10,7 +10,11 @@ features:
   slash_commands:
     - command: /configure
       description: Turn a client request into a product and price configuration
-      usage_hint: "(optional) what the client asked for"
+      usage_hint: "(optional) the new offer, in your own words"
+      should_escape: false
+    - command: /quote
+      description: Prepare a priced offer for a customer from the catalog
+      usage_hint: "(optional) e.g. Acme wants 120 more Cloud Analytics licences, 5% off"
       should_escape: false
 
 oauth_config:

@@ -1,25 +1,45 @@
 /*
- * Example requests behind the chips in the intake modal. Fictional products
- * only - no client data. The last one is deliberately vague so the demo
- * shows the follow-up questions.
+ * Example requests behind the chips in the intake modals. Fictional products
+ * and customers only - no client data. The customers exist in the sandbox
+ * (salesforce/scripts/apex/salescopilot-seed-customers.apex).
  */
 
+/* /configure: a new offer for the catalog. The last one is deliberately vague
+ * so the demo shows the follow-up questions. */
 const EXAMPLES = [
   {
-    label: ':chart_with_upwards_trend: Volume discount',
-    text: 'Client wants our Cloud Analytics licence at $40 per user per month for their sales team. ' +
-      '10% off above 100 users and 15% above 500. Business customers only.',
+    label: 'Volume discount',
+    text: 'Team Chat licence at $6 per user per month. 10% off from 50 users and 15% from 200. Business customers only.',
   },
   {
-    label: ':package: Bundle',
-    text: 'They would like the Starter Hardware Kit ($200) and the Onboarding Service ($500) sold together ' +
-      'as one package. B2B.',
+    label: 'Package',
+    text: 'Sell the Starter Router ($120 one-time) and Fibre Internet ($30 a month) together as a home package, ' +
+      'with Wi-Fi Booster ($40) as an optional extra. Consumers.',
   },
   {
-    label: ':memo: Rough call notes',
+    label: 'Rough call notes',
     text: 'call w/ retail prospect - liked the Smart Shelf sensors and maybe the Analytics add-on, ' +
       'want it cheaper for big orders, they are based in Germany',
   },
 ];
 
-module.exports = { EXAMPLES };
+/* /quote: a customer and what they want. */
+const QUOTE_EXAMPLES = [
+  {
+    label: 'More licences',
+    customer: 'Acme Logistics',
+    text: 'Acme wants 120 more Cloud Analytics licences, give them 5%.',
+  },
+  {
+    label: 'Discount above the limit',
+    customer: 'Acme Logistics',
+    text: 'Acme wants 120 more Cloud Analytics licences but pushes for 15% off.',
+  },
+  {
+    label: 'Not in the catalog',
+    customer: 'Nowak Design',
+    text: 'Nowak Design wants a project management tool for their whole team.',
+  },
+];
+
+module.exports = { EXAMPLES, QUOTE_EXAMPLES };

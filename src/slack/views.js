@@ -1,79 +1,73 @@
 /*
- * Modal views for the /configure flow.
+ * Modal views for /configure and /quote.
  *
- *   intake    -> rep describes the request (+ optional who-buys)
- *   progress  -> shown while Claude works, steps rotate
- *   questions -> Claude's follow-up questions, pre-filled with its best guess
- *   done      -> "posted to #channel"
- *   adjust    -> rep says what to change on a posted card (+ its done / blocked views)
+ *   intake / quote_intake  -> what is asked for (+ who buys / which customer)
+ *   progress               -> shown while Claude works, steps rotate
+ *   questions              -> Claude's follow-up questions, pre-filled with its best guess
+ *   done                   -> "posted to #channel"
+ *   adjust                 -> what to change on a posted card (+ its done / blocked views)
  *
  * Slack limits worth knowing: title/submit/close 24 chars, option text 75,
  * private_metadata 3000 - so only ids go in metadata, the rest lives in the store.
  */
 
-const { EXAMPLES } = require('./examples');
+const { EXAMPLES, QUOTE_EXAMPLES } = require('./examples');
+const { plain, context, section, truncate } = require('./format');
 
-const TITLE = { type: 'plain_text', text: 'Sales Copilot' };
+const TITLE = plain('Sales Copilot');
 
-const plain = (text) => ({ type: 'plain_text', text });
-const mrkdwn = (text) => ({ type: 'mrkdwn', text });
-const option = (value, label = value) => ({ text: plain(label.slice(0, 75)), value: value.slice(0, 150) });
+const option = (value, label = value) => ({ text: plain(truncate(label, 75)), value: String(value).slice(0, 150) });
 
-const AVAILABILITY = [option('B2B', 'Businesses (B2B)'), option('B2C', 'Consumers (B2C)'), option('both', 'Both')];
+const AVAILABILITY = [option('B2B', 'Business customers'), option('B2C', 'Consumers'), option('both', 'Both')];
 
 /* ------------------------------------------------------------------ *
- * Intake
+ * /configure intake
  * ------------------------------------------------------------------ */
 
 /*
  * `version` goes into the request block_id. Slack keeps whatever the user
  * typed for an unchanged block_id, so filling in an example needs a new one.
+ * handoff: { customerName, userId } when a rep's quote handed this over.
  */
-function intakeView({ meta, text = '', hints = {}, error, version = 0 }) {
+function intakeView({ meta, text = '', hints = {}, error, version = 0, handoff }) {
   const blocks = [
-    {
-      type: 'section',
-      text: mrkdwn(
-        '*Just off a client call?* Tell me what they asked for, in your own words. ' +
-        "I'll turn it into a Revenue Cloud product and price setup, and ask about anything that's missing.",
-      ),
-    },
+    section(handoff
+      ? `*New offer for ${handoff.customerName}.* <@${handoff.userId}> needs something the catalog does not sell yet. ` +
+        'Their request is below: add the price and discount, and I will set it up in Revenue Cloud.'
+      : '*Need a new offer in the catalog?* Describe it in your own words. ' +
+        "I'll turn it into a Revenue Cloud product and price setup, and ask about anything that's missing."),
   ];
 
-  if (error) {
-    blocks.push({ type: 'section', text: mrkdwn(`:warning: ${error}`) });
+  if (error) blocks.push(section(`*That didn't work.* ${error}`));
+
+  blocks.push({
+    type: 'input',
+    block_id: `request_${version}`,
+    label: plain('What should we sell?'),
+    hint: plain('Products, prices, billing, discounts, who buys. Rough notes are fine.'),
+    element: {
+      type: 'plain_text_input',
+      action_id: 'value',
+      multiline: true,
+      focus_on_load: true,
+      max_length: 3000,
+      initial_value: text || undefined,
+      placeholder: plain('e.g. Cloud Analytics licence at $40 per user per month, 10% off from 100 users, business customers only'),
+    },
+  });
+
+  if (!handoff) {
+    blocks.push(
+      context('Not sure how to put it? Start from an example:'),
+      {
+        type: 'actions',
+        block_id: 'examples',
+        elements: EXAMPLES.map((ex, i) => ({ type: 'button', action_id: `example_${i}`, text: plain(ex.label), value: String(i) })),
+      },
+    );
   }
 
-  blocks.push(
-    {
-      type: 'input',
-      block_id: `request_${version}`,
-      label: plain('What did the client ask for?'),
-      hint: plain('Products, prices, discounts, who buys. Rough notes are fine.'),
-      element: {
-        type: 'plain_text_input',
-        action_id: 'value',
-        multiline: true,
-        focus_on_load: true,
-        max_length: 3000,
-        initial_value: text || undefined,
-        placeholder: plain('e.g. They want the Analytics licence at $40 per user, 10% off above 100 users, business customers only'),
-      },
-    },
-    { type: 'context', elements: [mrkdwn('Not sure how to put it? Start from an example:')] },
-    {
-      type: 'actions',
-      block_id: 'examples',
-      elements: EXAMPLES.map((ex, i) => ({
-        type: 'button',
-        action_id: `example_${i}`,
-        text: plain(ex.label),
-        value: String(i),
-      })),
-    },
-    { type: 'divider' },
-    selectInput('availability', 'Who buys?', AVAILABILITY, hints.availability),
-  );
+  blocks.push({ type: 'divider' }, selectInput('availability', 'Who buys?', AVAILABILITY, hints.availability));
 
   return {
     type: 'modal',
@@ -110,9 +104,87 @@ function readIntake(view) {
     requestBlock,
     version: Number(requestBlock.split('_')[1]),
     text: (values[requestBlock].value.value || '').trim(),
-    hints: {
-      availability: values.availability?.value.selected_option?.value,
+    hints: { availability: values.availability?.value.selected_option?.value },
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * /quote intake
+ * ------------------------------------------------------------------ */
+
+/*
+ * The customer picker searches Salesforce as the rep types (app.options in
+ * slack/quote.js). Option value: "<accountId>|<name>"; an example chip
+ * pre-selects by name only ("|Acme Logistics").
+ */
+function quoteIntakeView({ meta, text = '', customer, error, version = 0 }) {
+  const blocks = [
+    section('*Preparing an offer for a customer?* Pick the customer and say what they want. ' +
+      "I'll check what they already have and what the catalog sells them, and price it."),
+  ];
+  if (error) blocks.push(section(`*That didn't work.* ${error}`));
+
+  blocks.push(
+    {
+      type: 'input',
+      block_id: `customer_${version}`,
+      optional: true,
+      label: plain('Customer'),
+      hint: plain('Searches Salesforce. Leave it empty if the request names the customer.'),
+      element: {
+        type: 'external_select',
+        action_id: 'customer_select',
+        min_query_length: 2,
+        placeholder: plain('Start typing a customer name'),
+        ...(customer && { initial_option: option(`${customer.accountId ?? ''}|${customer.name}`, customer.name) }),
+      },
     },
+    {
+      type: 'input',
+      block_id: `request_${version}`,
+      label: plain('What do they want?'),
+      hint: plain('Products, quantities, any discount you offered. Rough notes are fine.'),
+      element: {
+        type: 'plain_text_input',
+        action_id: 'value',
+        multiline: true,
+        focus_on_load: !customer,
+        max_length: 3000,
+        initial_value: text || undefined,
+        placeholder: plain('e.g. 120 more Cloud Analytics licences, and give them 5%'),
+      },
+    },
+    context('Or start from an example:'),
+    {
+      type: 'actions',
+      block_id: 'examples',
+      elements: QUOTE_EXAMPLES.map((ex, i) => ({ type: 'button', action_id: `quote_example_${i}`, text: plain(ex.label), value: String(i) })),
+    },
+  );
+
+  return {
+    type: 'modal',
+    callback_id: 'quote_intake',
+    title: TITLE,
+    submit: plain('Prepare offer'),
+    close: plain('Cancel'),
+    private_metadata: JSON.stringify(meta),
+    blocks,
+  };
+}
+
+function readQuoteIntake(view) {
+  const values = view.state.values;
+  const requestBlock = Object.keys(values).find((id) => id.startsWith('request_'));
+  const customerBlock = Object.keys(values).find((id) => id.startsWith('customer_'));
+  const picked = values[customerBlock]?.customer_select?.selected_option?.value;
+  const [accountId, ...name] = (picked ?? '').split('|');
+
+  return {
+    requestBlock,
+    version: Number(requestBlock.split('_')[1]),
+    text: (values[requestBlock].value.value || '').trim(),
+    customer: picked ? { accountId: accountId || undefined, name: name.join('|') } : undefined,
   };
 }
 
@@ -121,8 +193,8 @@ function readIntake(view) {
  * ------------------------------------------------------------------ */
 
 function progressView({ meta, step, steps, rawRequest, channelId }) {
-  const checklist = steps
-    .map((s, i) => (i < step ? `:white_check_mark: ${s}` : i === step ? `:hourglass_flowing_sand: *${s}*` : `:white_circle: ${s}`))
+  const list = steps
+    .map((s, i) => (i < step ? `~${s}~` : i === step ? `*${s}…*` : s))
     .join('\n');
 
   return {
@@ -132,12 +204,10 @@ function progressView({ meta, step, steps, rawRequest, channelId }) {
     close: plain('Close'),
     private_metadata: JSON.stringify(meta),
     blocks: [
-      { type: 'section', text: mrkdwn(checklist) },
-      { type: 'context', elements: [mrkdwn(`> ${truncate(rawRequest, 280).replace(/\n/g, '\n> ')}`)] },
-      {
-        type: 'context',
-        elements: [mrkdwn(`Usually takes 10-20 seconds. If you close this, the result still lands in <#${channelId}>.`)],
-      },
+      context(`Step ${step + 1} of ${steps.length}`),
+      section(list),
+      context(`> ${truncate(rawRequest, 280).replace(/\n/g, '\n> ')}`),
+      context(`Usually takes 10-20 seconds. If you close this, the result still lands in <#${channelId}>.`),
     ],
   };
 }
@@ -146,28 +216,25 @@ function progressView({ meta, step, steps, rawRequest, channelId }) {
  * Questions
  * ------------------------------------------------------------------ */
 
-function questionsView(session, error) {
+/* understood: one line naming what Claude found (products, or customer + lines). */
+function questionsView({ callbackId, session, understood, submitLabel, error }) {
   const { analysis } = session;
   const n = analysis.questions.length;
-  const errorBlocks = error ? [{ type: 'section', text: mrkdwn(`:warning: ${error}`) }] : [];
 
   return {
     type: 'modal',
-    callback_id: 'questions',
+    callback_id: callbackId,
     title: TITLE,
-    submit: plain('Create configuration'),
+    submit: plain(submitLabel),
     close: plain('Cancel'),
     private_metadata: JSON.stringify({ sessionId: session.id }),
     blocks: [
-      ...errorBlocks,
-      { type: 'section', text: mrkdwn(`*Here's what I understood*\n${analysis.summary}`) },
-      { type: 'context', elements: [mrkdwn(productLine(analysis.extracted.products))] },
+      ...(error ? [section(`*That didn't work.* ${error}`)] : []),
+      section(`*Here's what I understood*\n${analysis.summary}`),
+      context(understood),
       { type: 'divider' },
-      {
-        type: 'section',
-        text: mrkdwn(`*${n === 1 ? 'One quick question' : `${n} quick questions`} before I build it*`),
-      },
-      { type: 'context', elements: [mrkdwn("I've pre-filled my best guess. Change anything that's wrong, skip what you don't know.")] },
+      section(`*${n === 1 ? 'One quick question' : `${n} quick questions`} first*`),
+      context("I've pre-filled my best guess. Change anything that's wrong, skip what you don't know."),
       ...analysis.questions.map(questionInput),
     ],
   };
@@ -226,18 +293,15 @@ function readAnswers(view, questions) {
  * Done
  * ------------------------------------------------------------------ */
 
-function doneView(session) {
+function doneView(session, { what = 'Posted', next = 'Check it there and click *Build it* when it looks right.' } = {}) {
   return {
     type: 'modal',
     callback_id: 'done',
     title: TITLE,
     close: plain('Done'),
     blocks: [
-      {
-        type: 'section',
-        text: mrkdwn(`:white_check_mark: *Configuration posted to <#${session.card.channel}>*\n${session.analysis.summary}`),
-      },
-      { type: 'context', elements: [mrkdwn('Check it there and click *Build it* when it looks right.')] },
+      section(`*${what} in <#${session.card.channel}>*\n${session.analysis.summary}`),
+      context(next),
     ],
   };
 }
@@ -247,19 +311,17 @@ function doneView(session) {
  * ------------------------------------------------------------------ */
 
 function adjustView(session, { change = '', error } = {}) {
-  const errorBlocks = error ? [{ type: 'section', text: mrkdwn(`:warning: ${error}`) }] : [];
-
+  const isQuote = session.kind === 'quote';
   return {
     type: 'modal',
     callback_id: 'adjust',
-    title: plain('Adjust configuration'),
+    title: plain(isQuote ? 'Adjust offer' : 'Adjust configuration'),
     submit: plain('Update'),
     close: plain('Cancel'),
     private_metadata: JSON.stringify({ sessionId: session.id }),
     blocks: [
-      ...errorBlocks,
-      { type: 'section', text: mrkdwn(`*Current configuration*\n${session.analysis.summary}`) },
-      { type: 'context', elements: [mrkdwn(productLine(session.analysis.extracted.products))] },
+      ...(error ? [section(`*That didn't work.* ${error}`)] : []),
+      section(`*Current ${isQuote ? 'offer' : 'configuration'}*\n${session.analysis.summary}`),
       {
         type: 'input',
         block_id: 'change',
@@ -272,7 +334,9 @@ function adjustView(session, { change = '', error } = {}) {
           focus_on_load: true,
           max_length: 1000,
           initial_value: change || undefined,
-          placeholder: plain('e.g. 15% instead of 10%, and add a yearly subscription option'),
+          placeholder: plain(isQuote
+            ? 'e.g. they want 15% now, and lead the page with the savings'
+            : 'e.g. 15% instead of 10%, and bill it monthly'),
         },
       },
     ],
@@ -284,19 +348,10 @@ function readAdjust(view) {
 }
 
 function adjustDoneView(session) {
-  return {
-    type: 'modal',
-    callback_id: 'done',
-    title: TITLE,
-    close: plain('Done'),
-    blocks: [
-      {
-        type: 'section',
-        text: mrkdwn(`:white_check_mark: *Card updated in <#${session.card.channel}>*\n${session.analysis.summary}`),
-      },
-      { type: 'context', elements: [mrkdwn('Check it there and click *Build it* when it looks right.')] },
-    ],
-  };
+  return doneView(session, {
+    what: 'Card updated',
+    next: `Check it there and click *${session.kind === 'quote' ? 'Create quote' : 'Build it'}* when it looks right.`,
+  });
 }
 
 function adjustBlockedView(session) {
@@ -305,12 +360,9 @@ function adjustBlockedView(session) {
     callback_id: 'done',
     title: TITLE,
     close: plain('Close'),
-    blocks: [
-      {
-        type: 'section',
-        text: mrkdwn(`:no_entry: *Not applied.* This configuration was already built or discarded in <#${session.card.channel}> while I was working, so the card is unchanged.`),
-      },
-    ],
+    blocks: [section(
+      `*Not applied.* This card was already completed or discarded in <#${session.card.channel}> while I was working, so it is unchanged.`,
+    )],
   };
 }
 
@@ -321,13 +373,11 @@ function productLine(products) {
   return products.map((p) => `*${p.name}*`).join('  ·  ');
 }
 
-function truncate(text, max) {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
-}
-
 module.exports = {
   intakeView,
   readIntake,
+  quoteIntakeView,
+  readQuoteIntake,
   progressView,
   questionsView,
   readAnswers,
@@ -336,4 +386,5 @@ module.exports = {
   readAdjust,
   adjustDoneView,
   adjustBlockedView,
+  productLine,
 };

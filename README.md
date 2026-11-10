@@ -15,26 +15,40 @@ the meantime the deal cools.
 
 ## What Sales Copilot does
 
-The rep describes the request in plain English, in Slack. Claude turns it into
-a structured product and pricing specification, asks about anything important
-that is missing, and shows the result as a card. One click builds it as real
-records in a Salesforce Revenue Cloud sandbox and posts a link to a
-configurator the rep can show the client.
+Two roles, one Slack:
+
+- **`/quote`, the sales rep.** "Acme wants 120 more Cloud Analytics licences,
+  give them 5%." Sales Copilot reads the customer in Salesforce (segment,
+  current services, contracts ending, open quotes) and the catalog for their
+  segment, prices the lines with the volume tiers, flags a discount that needs
+  a manager, and composes a proposal page for that customer. One click creates
+  the Revenue Cloud quote.
+- **`/configure`, the product manager.** When the customer wants something the
+  catalog does not sell, the rep's card hands it over in one click. The product
+  manager adds the price in plain words; Claude turns it into a product and
+  pricing specification (reusing catalog products in a package), asks about
+  anything important that is missing, and one click builds it as real records
+  in a Salesforce Revenue Cloud sandbox. **Quote it for Acme** then closes the
+  loop.
 
 ```
- Slack (rep)              Orchestrator (this repo, Node)           Salesforce sandbox
- ───────────              ──────────────────────────────           ──────────────────
- /configure ────────────► Claude: plain English → structured spec
- answers ≤3 questions ◄─► Claude: final pass
- card in channel ◄─────── products, discount tiers, who buys,
-                          assumptions made
- [Adjust] ──────────────► Claude revises the card in place
- [Build it] ────────────► POST contract (OAuth client credentials) ──► Apex REST endpoint
-                                                                       creates Product2,
-                                                                       PricebookEntry, tiers,
-                                                                       bundle
- link in thread ◄──────── { requestId, status, artifactUrl } ◄──────
- click ───────────────────────────────────────────────────────────► configurator (React)
+ Slack                    Orchestrator (this repo, Node)              Salesforce sandbox
+ ─────                    ──────────────────────────────              ──────────────────
+ /quote ────────────────► GET customer, GET catalog ◄───────────────► Apex REST
+                          Claude: lines from the catalog, page
+ quote card ◄──────────── priced lines, approval flag, customer page,
+                          "not in the catalog" hand-off
+ [Create quote] ────────► POST quote ───────────────────────────────► Revenue Cloud quote,
+ links in thread ◄─────── quote + customer page ◄─────────────────── priced by the pricing procedure
+
+ [Send to product manager] or /configure
+                ────────► GET catalog; Claude: plain English → spec + page
+ offer card ◄──────────── products, billing, tiers or package, who buys,
+                          customer page outline, assumptions made
+ [Adjust] ──────────────► Claude revises the card in place (both cards)
+ [Build it] ────────────► POST build (OAuth client credentials) ────► products, prices, tiers, bundle;
+                          refresh pricing                              configurator page
+ [Quote it for Acme] ───► back to the quote flow, no modal
 ```
 
 **AI is used only where language is involved.** Claude interprets the rep's
@@ -44,17 +58,26 @@ configuration.
 
 ## The flow, step by step
 
-1. The rep types `/configure` in a channel. A modal opens with example chips
-   and optional fields for who buys and currency.
-2. Claude extracts products, prices, discount tiers and availability. If
-   something important is missing, it asks **up to three questions**, each
-   pre-filled with its best guess.
-3. A card is posted in the channel showing what will be built and **every
-   assumption Claude made**, so nothing is hidden from the rep.
-4. **Adjust** (optional): the rep describes a change in plain words, such as
-   "make it 15% above 1000". The card is revised in place, as often as needed.
-5. **Build it**: the specification is sent to Salesforce, and a link to the
-   configurator appears in the thread.
+1. The rep types `/quote`. A modal opens: a customer picker that searches
+   Salesforce as they type, the request, and example chips.
+2. Claude proposes lines from the catalog only, and composes the customer page
+   (headline, which blocks lead, why the offer fits this customer, from facts in
+   the customer record). Lines are priced on the card: volume tier, extra
+   discount, total per billing, and how far the next tier is.
+3. A discount above the limit is flagged before anything is written: the quote
+   will wait for a manager.
+4. **Create quote** creates the quote in Revenue Cloud and posts the customer
+   page and the quote link in the thread.
+5. If the customer wants something the catalog does not sell, the card says so
+   and **Send to product manager** opens `/configure` with a ready request.
+6. `/configure`: Claude extracts products, prices, billing, discount tiers or a
+   package, and availability; it asks **up to three questions**, each pre-filled
+   with its best guess. The card shows what will be built and **every assumption
+   Claude made**.
+7. **Adjust** (both cards): describe a change in plain words, such as "make it
+   15% above 1000". The card is revised in place, as often as needed.
+8. **Build it** builds the offer, refreshes pricing, and posts the configurator
+   link. **Quote it for Acme** prepares the quote for the customer who asked.
 
 ## Repository layout
 
@@ -64,20 +87,29 @@ src/
   config.js           all environment variables
   llm.js              the only place that calls Claude: Anthropic API if
                       ANTHROPIC_API_KEY is set, otherwise headless Claude Code
-  extraction.js       skill + JSON schema -> analysis (spec + questions)
-  contract.js         analysis schema and the contract sent to Salesforce
+  extraction.js       /configure: skill + catalog + JSON schema -> analysis
+  contract.js         build analysis schema and the contract sent to Salesforce
+  quote.js            /quote: customer + catalog -> lines, page, hand-off
+  pricing.js          quote preview: tiers, discount, totals, approval
+  presentation.js     the customer page (blocks, order, text), shared
+  prompt-utils.js     skill loading, catalog as prompt text
+  salesforce.js       every Salesforce call (build, catalog, customer, quote,
+                      pricing refresh); salesforce-stub.js when SF_* is not set
   store.js            in-memory sessions
-  builder.js          Salesforce Apex REST call, or a stub when SF_* is not set
   slack/
-    configure.js      /configure -> intake modal -> questions -> card
-    adjust.js         Adjust -> modal -> Claude revises -> card updated
-    card-actions.js   Build it / Discard / Open configurator
-    card.js           the channel card (Block Kit)
+    configure.js      /configure -> intake modal -> questions -> offer card
+    quote.js          /quote -> customer picker -> questions -> quote card
+    adjust.js         Adjust (both cards) -> modal -> Claude revises -> card updated
+    card-actions.js   Build it, Create quote, hand-off, Quote it, Discard
+    card.js           the offer card (Block Kit)
+    quote-card.js     the quote card (Block Kit)
     views.js          modal views
-    modal-utils.js    progress steps shared by configure and adjust
+    format.js         Block Kit and money formatting
+    modal-utils.js    progress steps, posting cards
     examples.js       example requests behind the modal chips (fictional)
 skills/
-  sales-request-extraction.md   the extraction skill (also in Context Builder)
+  sales-request-extraction.md   the /configure skill (also in Context Builder)
+  sales-quote-extraction.md     the /quote skill
 docs/
   slack-setup.md                 create the Slack app and run locally
   salesforce-integration.md      the endpoint, contract, auth and a curl test
@@ -121,6 +153,12 @@ Salesforce returns:
 { "requestId": "req_mf3k_001", "status": "created", "artifactUrl": "https://..." }
 ```
 
+That is contract v1. The orchestrator sends v2: `sellingModel` per product,
+`pricing.appliesTo`, an explicit `bundle` (components, optional parts, catalog
+products reused by `productId`), and `presentation`, the customer page. `/quote`
+sends `{ account, lines, presentation }` to `POST quote`. Endpoint reference:
+[salesforce/README.md](salesforce/README.md).
+
 Full field reference and record mapping:
 [docs/salesforce-integration.md](docs/salesforce-integration.md).
 
@@ -135,7 +173,7 @@ npm install
 npm start
 ```
 
-Then type `/configure` in a channel the bot is in.
+Then type `/quote` or `/configure` in a channel the bot is in.
 
 | Variable | Required | Effect |
 |---|---|---|
@@ -144,8 +182,8 @@ Then type `/configure` in a channel the bot is in.
 | `CLAUDE_BIN`, `CLAUDE_MODEL` | no | path to the `claude` CLI, model override |
 | `SF_DOMAIN`, `SF_CLIENT_ID`, `SF_CLIENT_SECRET` | no | build in a real Salesforce org; without them, a stub returns a placeholder link |
 
-With only the Slack tokens set, everything up to and including **Build it**
-runs end to end against the stub.
+With only the Slack tokens set, both flows run end to end against a stub with
+fictional customers and catalog.
 
 ## What a reviewer cannot re-run
 

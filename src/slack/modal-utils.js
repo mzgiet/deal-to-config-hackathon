@@ -1,6 +1,7 @@
 /*
  * Helpers shared by the flows that run Claude behind a modal (/configure,
- * Adjust): progress steps while waiting, and tolerant views.update.
+ * /quote, Adjust): progress steps while waiting, tolerant views.update,
+ * posting a card.
  */
 
 const STEP_MS = 4000;
@@ -28,7 +29,7 @@ function startProgress(client, viewId, render, stepCount) {
   };
 }
 
-/* views.update fails if the rep closed the modal meanwhile - not an error for us. */
+/* views.update fails if the modal was closed meanwhile - not an error for us. */
 async function safeUpdate(client, viewId, view, hash) {
   try {
     await client.views.update({ view_id: viewId, view, hash });
@@ -40,8 +41,28 @@ async function safeUpdate(client, viewId, view, hash) {
 }
 
 function short(message) {
-  const first = message.split('\n')[0];
+  const first = String(message).split('\n')[0];
   return first.length > 200 ? `${first.slice(0, 199)}…` : first;
 }
 
-module.exports = { startProgress, safeUpdate, short };
+/* Post the session's card in its channel and remember where it is. */
+async function postCard(client, session, render) {
+  try {
+    const res = await client.chat.postMessage({ channel: session.channelId, ...render(session) });
+    session.card = { channel: res.channel, ts: res.ts };
+  } catch (err) {
+    if (['not_in_channel', 'channel_not_found'].includes(err.data?.error)) {
+      throw new Error('I can\'t post in this channel. Invite me with /invite @Sales Copilot, or use a public channel.');
+    }
+    throw err;
+  }
+}
+
+function foldQuestionsIntoAssumptions(analysis) {
+  for (const q of analysis.questions) {
+    analysis.assumptions.push(`${q.question} (not answered${q.suggested ? `, assumed ${q.suggested}` : ''})`);
+  }
+  analysis.questions = [];
+}
+
+module.exports = { startProgress, safeUpdate, short, postCard, foldQuestionsIntoAssumptions };

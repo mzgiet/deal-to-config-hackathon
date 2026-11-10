@@ -13,7 +13,7 @@ assertConfig();
 
 const { App } = require('@slack/bolt');
 const { backendName } = require('./llm');
-const { builderName } = require('./builder');
+const { salesforceName } = require('./salesforce');
 const { registerSlack } = require('./slack');
 
 const app = new App({
@@ -31,6 +31,6 @@ app.error(async (err) => {
 (async () => {
   await app.start();
   console.log(`Claude:  ${backendName}`);
-  console.log(`Builder: ${builderName}`);
-  console.log('Sales Copilot is listening (Socket Mode). Try /configure in Slack.');
+  console.log(`Salesforce: ${salesforceName}`);
+  console.log('Sales Copilot is listening (Socket Mode). Try /configure or /quote in Slack.');
 })();

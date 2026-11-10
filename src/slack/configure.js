@@ -1,6 +1,10 @@
 /*
- * /configure flow: intake modal -> Claude -> questions modal (if needed)
- * -> Claude final pass -> card in the channel.
+ * /configure flow (product manager): intake modal -> Claude -> questions modal
+ * (if needed) -> Claude final pass -> offer card in the channel.
+ *
+ * Also opened from a /quote card ("Send to product manager"): the intake is
+ * pre-filled with the rep's request and the card remembers the customer, so
+ * the built offer can be quoted for them in one click.
  *
  * Slack gives 3 seconds to ack every command, action and submission. Claude
  * takes longer, so each submission acks by swapping the modal to a progress
@@ -11,10 +15,11 @@ const { analyseRequest } = require('../extraction');
 const { createSession, getSession } = require('../store');
 const { EXAMPLES } = require('./examples');
 const { buildCard } = require('./card');
+const { buildQuoteCard } = require('./quote-card');
 const views = require('./views');
-const { startProgress, safeUpdate, short } = require('./modal-utils');
+const { startProgress, safeUpdate, short, postCard, foldQuestionsIntoAssumptions } = require('./modal-utils');
 
-const FIRST_PASS = ['Reading the request', 'Matching products and prices', 'Checking what is missing'];
+const FIRST_PASS = ['Reading the request', 'Checking the catalog', 'Matching products and prices', 'Checking what is missing'];
 const FINAL_PASS = ['Applying your answers', 'Finalising the configuration'];
 
 function registerConfigure(app) {
@@ -50,6 +55,7 @@ function registerConfigure(app) {
   app.view('intake', async ({ ack, view, client }) => {
     const meta = JSON.parse(view.private_metadata);
     const { requestBlock, text, hints } = views.readIntake(view);
+    const handoff = handoffFrom(meta.handoffId);
 
     if (text.length < 10) {
       await ack({
@@ -59,7 +65,9 @@ function registerConfigure(app) {
       return;
     }
 
-    const session = createSession({ ...meta, rawRequest: text, hints });
+    const session = createSession({
+      kind: 'build', channelId: meta.channelId, userId: meta.userId, rawRequest: text, hints, handoff,
+    });
     console.log(`    ${session.id}: ${text}`);
 
     const progress = (step) => views.progressView({
@@ -73,18 +81,18 @@ function registerConfigure(app) {
       await stopProgress();
 
       if (session.analysis.questions.length) {
-        if (await safeUpdate(client, view.id, views.questionsView(session))) return;
-        // The rep closed the modal - post anyway, open questions become assumptions.
+        if (await safeUpdate(client, view.id, questionsView(session))) return;
+        // The modal was closed - post anyway, open questions become assumptions.
         foldQuestionsIntoAssumptions(session.analysis);
       }
 
-      await publishCard(client, session);
+      await publish(client, session);
       await safeUpdate(client, view.id, views.doneView(session));
     } catch (err) {
       await stopProgress();
       console.error(err);
       await safeUpdate(client, view.id, views.intakeView({
-        meta, text, hints, error: `That didn't work: ${short(err.message)} Try again?`,
+        meta, text, hints, error: `${short(err.message)} Try again?`, handoff: handoffView(handoff),
       }));
     }
   });
@@ -109,36 +117,61 @@ function registerConfigure(app) {
     try {
       session.analysis = await analyseRequest(session);
       await stopProgress();
-      await publishCard(client, session);
+      await publish(client, session);
       await safeUpdate(client, view.id, views.doneView(session));
     } catch (err) {
       await stopProgress();
       console.error(err);
-      await safeUpdate(client, view.id, views.questionsView(session, `That didn't work: ${short(err.message)} Try again?`));
+      await safeUpdate(client, view.id, questionsView(session, `${short(err.message)} Try again?`));
     }
   });
 }
 
 /* ------------------------------------------------------------------ */
 
-async function publishCard(client, session) {
+/* Opened from a quote card: the intake is pre-filled with the hand-off request. */
+async function openHandoffIntake(client, triggerId, quoteSession, userId) {
+  await client.views.open({
+    trigger_id: triggerId,
+    view: views.intakeView({
+      meta: { channelId: quoteSession.card.channel, userId, handoffId: quoteSession.id },
+      text: quoteSession.analysis.notInCatalog.map((n) => n.productManagerRequest).join('\n\n'),
+      hints: { availability: quoteSession.customer.segment === 'Consumer' ? 'B2C' : 'B2B' },
+      handoff: { customerName: quoteSession.customer.name, userId: quoteSession.userId },
+    }),
+  });
+}
+
+function handoffFrom(quoteSessionId) {
+  const quote = quoteSessionId && getSession(quoteSessionId);
+  if (!quote) return undefined;
+  return { quoteSessionId: quote.id, customer: quote.customer, rawRequest: quote.rawRequest, userId: quote.userId };
+}
+
+function handoffView(handoff) {
+  return handoff && { customerName: handoff.customer.name, userId: handoff.userId };
+}
+
+function questionsView(session, error) {
+  return views.questionsView({
+    callbackId: 'questions',
+    session,
+    understood: views.productLine(session.analysis.extracted.products),
+    submitLabel: 'Create configuration',
+    error,
+  });
+}
+
+async function publish(client, session) {
   session.status = 'ready';
-  try {
-    const res = await client.chat.postMessage({ channel: session.channelId, ...buildCard(session) });
-    session.card = { channel: res.channel, ts: res.ts };
-  } catch (err) {
-    if (['not_in_channel', 'channel_not_found'].includes(err.data?.error)) {
-      throw new Error('I can\'t post in this channel. Invite me with /invite @Sales Copilot, or use a public channel.');
-    }
-    throw err;
+  await postCard(client, session, buildCard);
+
+  // The rep's quote card says where the request went.
+  const quote = session.handoff && getSession(session.handoff.quoteSessionId);
+  if (quote?.card && !quote.handedOffBy) {
+    quote.handedOffBy = session.userId;
+    await client.chat.update({ ...quote.card, ...buildQuoteCard(quote) }).catch((err) => console.warn(err.message));
   }
 }
 
-function foldQuestionsIntoAssumptions(analysis) {
-  for (const q of analysis.questions) {
-    analysis.assumptions.push(`${q.question} (not answered${q.suggested ? `, assumed ${q.suggested}` : ''})`);
-  }
-  analysis.questions = [];
-}
-
-module.exports = { registerConfigure };
+module.exports = { registerConfigure, openHandoffIntake };

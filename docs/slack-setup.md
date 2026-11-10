@@ -78,7 +78,7 @@ npm start
 ```
 
 The console should show:
-`Sales Copilot is listening (Socket Mode). Try /configure in Slack.`
+`Sales Copilot is listening (Socket Mode). Try /configure or /quote in Slack.`
 
 ## 8. Test
 
@@ -90,14 +90,24 @@ In `#sales-demo`:
 
 Expected:
 
-1. A "Sales Copilot" modal opens. Click the **:memo: Rough call notes**
+1. A "Sales Copilot" modal opens. Click the **Rough call notes**
    example, then **Analyse**
-2. Progress steps (✅ / ⏳), then a modal with up to 3 questions, pre-filled
+2. Progress steps, then a modal with up to 3 questions, pre-filled
    with Claude's suggestion. Answer and click **Create configuration**
 3. A card appears in the channel: products, discounts, who buys, assumptions
 4. **Build it**: the card shows "Building…", then a configurator link appears
    in the thread (a placeholder link from the stub unless Salesforce is
    configured)
+
+Then `/quote`: pick **Acme Logistics** in the Customer field (it searches
+Salesforce, or the stub's fictional customers), click the **More licences**
+example and **Prepare offer**. The quote card shows the priced lines; **Create
+quote** posts the customer page and the quote link in the thread.
+
+**Adding `/quote` to an app created before it existed:** paste the updated
+`manifest.yaml` in the app config (App Manifest), save, and reinstall the app to
+the workspace (Install App). No URL is needed for the customer picker in Socket
+Mode.
 
 ## Troubleshooting
 
@@ -105,6 +115,8 @@ Expected:
 |---|---|
 | `/configure failed with the error "dispatch_failed"` | `npm start` is not running, or the `xapp-` token is wrong |
 | `/configure` does not appear in suggestions | the app is not installed (step 4) |
+| `/quote` does not appear in suggestions | the manifest was not updated, or the app was not reinstalled after updating it |
+| The Customer field finds nothing | Salesforce is unreachable (details in the console), or the customer does not exist in the sandbox; the request can also name the customer ("Acme wants ...") |
 | `invalid_auth` in the console | tokens swapped: `xoxb` ↔ `xapp` |
 | Modal says "I can't post in this channel" | private channel without the bot: invite it (step 6) |
 | Modal says "That didn't work: …" | a problem calling Claude; details in the console. Most often a wrong `CLAUDE_BIN` path |
