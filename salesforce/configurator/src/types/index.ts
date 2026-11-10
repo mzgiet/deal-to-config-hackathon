@@ -82,6 +82,8 @@ export interface RequestProduct {
   unitPrice: number | null;
   tiers: VolumeTier[];
   billing: Billing;
+  /** Reused from the catalog rather than created by this request. */
+  fromCatalog?: boolean;
 }
 
 export type Billing = 'monthly' | 'one-time';

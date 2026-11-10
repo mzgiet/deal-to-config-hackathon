@@ -31,6 +31,7 @@ public with sharing class SalesCopilotCatalogService {
         public String sellingModel;
         public String billing;
         public Decimal listPrice;
+        public String artifactUrl;
         public List<VolumeTier> volumeTiers = new List<VolumeTier>();
         public List<Component> components = new List<Component>();
         public List<String> includedIn = new List<String>();
@@ -115,6 +116,7 @@ public with sharing class SalesCopilotCatalogService {
         product.sellingModel = entry.ProductSellingModel?.Name;
         product.billing = toBilling(entry.ProductSellingModel);
         product.listPrice = entry.UnitPrice;
+        product.artifactUrl = entry.Product2.SalesCopilot_Request__r?.Artifact_Url__c;
         return product;
     }
 

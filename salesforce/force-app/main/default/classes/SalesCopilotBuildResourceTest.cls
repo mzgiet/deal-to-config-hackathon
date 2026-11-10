@@ -68,7 +68,7 @@ private class SalesCopilotBuildResourceTest {
     static void build_secondVolumeRequest_addsTiersWhileScheduleIsActive() {
         System.runAs(SalesCopilotTestDataFactory.buildUser()) {
             post(SalesCopilotTestDataFactory.volumeTierRequest('req_test_008'));
-            final String body = SalesCopilotTestDataFactory.volumeTierRequest('req_test_009');
+            final String body = SalesCopilotTestDataFactory.volumeTierRequest('req_test_009', 'Cloud Storage licence');
 
             Test.startTest();
             final Map<String, Object> response = post(body);
@@ -130,6 +130,132 @@ private class SalesCopilotBuildResourceTest {
 
             Assert.areEqual(400, RestContext.response.statusCode);
             Assert.isTrue(String.valueOf(response.get('error')).contains('Bundle discounts'));
+        }
+    }
+
+    @IsTest
+    static void build_bundleWithCatalogProduct_reusesItAndCreatesOnlyTheNewOnes() {
+        System.runAs(SalesCopilotTestDataFactory.buildUser()) {
+            SalesCopilotTestDataFactory.ensureBundleRelationshipType();
+            final Id mobileInternetId = SalesCopilotTestDataFactory.createCatalogProduct('Mobile Internet', 10);
+            final String body = SalesCopilotTestDataFactory.bundleRequest(
+                'req_test_010',
+                new List<Object>{
+                    SalesCopilotTestDataFactory.catalogProduct(mobileInternetId),
+                    SalesCopilotTestDataFactory.product('Router', 15, UserInfo.getDefaultCurrency())
+                },
+                new List<Object>{
+                    SalesCopilotTestDataFactory.component('Mobile Internet', false),
+                    SalesCopilotTestDataFactory.component('Router', true)
+                }
+            );
+
+            Test.startTest();
+            final Map<String, Object> response = post(body);
+            Test.stopTest();
+
+            Assert.areEqual(200, RestContext.response.statusCode, String.valueOf(response));
+            final Map<Id, Product2> created = new Map<Id, Product2>(SalesCopilotSelector.getProductsByRequestId('req_test_010'));
+            Assert.areEqual(2, created.size(), 'Only the router and the bundle are new');
+            Assert.isFalse(created.containsKey(mobileInternetId));
+
+            final List<PricebookEntry> mobileInternetEntries = SalesCopilotSelector.getPricebookEntriesByProductIds(
+                new Set<Id>{ mobileInternetId }
+            );
+            Assert.areEqual(1, mobileInternetEntries.size(), 'The catalog product gets no second price');
+
+            Product2 bundle;
+            for (Product2 product : created.values()) {
+                if (product.Type == SalesCopilotConstants.PRODUCT_TYPE_BUNDLE) {
+                    bundle = product;
+                }
+            }
+            final List<ProductRelatedComponent> components = SalesCopilotSelector.getComponentsByParentIds(
+                new Set<Id>{ bundle.Id }
+            );
+            Assert.areEqual(2, components.size());
+            Assert.areEqual(mobileInternetId, components[0].ChildProductId);
+            Assert.isTrue(components[0].IsComponentRequired);
+        }
+    }
+
+    @IsTest
+    static void build_newProductNamedLikeCatalogProduct_returnsConflictWithTheExistingProduct() {
+        System.runAs(SalesCopilotTestDataFactory.buildUser()) {
+            final Id onboardingId = SalesCopilotTestDataFactory.createCatalogProduct('Onboarding Service', 500);
+            final String body = SalesCopilotTestDataFactory.flatRequest('req_test_011', UserInfo.getDefaultCurrency());
+
+            Test.startTest();
+            final Map<String, Object> response = post(body);
+            Test.stopTest();
+
+            Assert.areEqual(409, RestContext.response.statusCode);
+            Assert.areEqual('exists', response.get('status'));
+            Assert.isTrue(String.valueOf(response.get('error')).contains('already exists in the catalog'));
+            final List<Object> existing = (List<Object>) response.get('existingProducts');
+            Assert.areEqual(1, existing.size());
+            final Map<String, Object> product = (Map<String, Object>) existing[0];
+            Assert.areEqual(String.valueOf(onboardingId), product.get('productId'));
+            Assert.areEqual(500, (Decimal) product.get('unitPrice'));
+            Assert.areEqual('one-time', product.get('billing'));
+            Assert.isTrue(SalesCopilotSelector.getRequests().isEmpty());
+        }
+    }
+
+    @IsTest
+    static void build_productBuiltEarlier_returnsConflictWithItsConfiguratorLink() {
+        System.runAs(SalesCopilotTestDataFactory.buildUser()) {
+            final Map<String, Object> first = post(SalesCopilotTestDataFactory.volumeTierRequest('req_test_014'));
+
+            Test.startTest();
+            final Map<String, Object> response = post(SalesCopilotTestDataFactory.volumeTierRequest('req_test_015'));
+            Test.stopTest();
+
+            Assert.areEqual(409, RestContext.response.statusCode, String.valueOf(response));
+            final Map<String, Object> product = (Map<String, Object>) ((List<Object>) response.get('existingProducts'))[0];
+            Assert.areEqual(first.get('artifactUrl'), product.get('artifactUrl'));
+        }
+    }
+
+    @IsTest
+    static void build_catalogProductWithAnotherPrice_returnsBadRequest() {
+        System.runAs(SalesCopilotTestDataFactory.buildUser()) {
+            final Id mobileInternetId = SalesCopilotTestDataFactory.createCatalogProduct('Mobile Internet', 10);
+            final Map<String, Object> repriced = SalesCopilotTestDataFactory.catalogProduct(mobileInternetId);
+            repriced.put('basePrice', 8);
+            final String body = SalesCopilotTestDataFactory.bundleRequest(
+                'req_test_012',
+                new List<Object>{ repriced, SalesCopilotTestDataFactory.product('Router', 15, UserInfo.getDefaultCurrency()) },
+                new List<Object>()
+            );
+
+            Test.startTest();
+            final Map<String, Object> response = post(body);
+            Test.stopTest();
+
+            Assert.areEqual(400, RestContext.response.statusCode);
+            Assert.isTrue(String.valueOf(response.get('error')).contains('does not change the price'));
+        }
+    }
+
+    @IsTest
+    static void build_catalogProductOutsideBundle_returnsBadRequest() {
+        System.runAs(SalesCopilotTestDataFactory.buildUser()) {
+            final Id onboardingId = SalesCopilotTestDataFactory.createCatalogProduct('Onboarding Service', 500);
+            final Map<String, Object> body = (Map<String, Object>) JSON.deserializeUntyped(
+                SalesCopilotTestDataFactory.flatRequest('req_test_013', UserInfo.getDefaultCurrency())
+            );
+            ((Map<String, Object>) body.get('extracted')).put(
+                'products',
+                new List<Object>{ SalesCopilotTestDataFactory.catalogProduct(onboardingId) }
+            );
+
+            Test.startTest();
+            final Map<String, Object> response = post(JSON.serialize(body));
+            Test.stopTest();
+
+            Assert.areEqual(400, RestContext.response.statusCode);
+            Assert.isTrue(String.valueOf(response.get('error')).contains('can only join a new bundle'));
         }
     }
 

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExternalClientApplication xmlns="http://soap.sforce.com/2006/04/metadata">
+    <contactEmail>dawid.rymarzak@synechron.com</contactEmail>
+    <description>Server-to-server access for the Sales Copilot orchestrator (Slack) to the salescopilot REST endpoints.</description>
+    <distributionState>Local</distributionState>
+    <isProtected>false</isProtected>
+    <label>Sales Copilot Orchestrator</label>
+</ExternalClientApplication>

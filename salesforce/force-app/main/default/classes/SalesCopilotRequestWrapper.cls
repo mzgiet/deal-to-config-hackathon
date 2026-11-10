@@ -15,6 +15,7 @@ public with sharing class SalesCopilotRequestWrapper {
     public List<BundleComponent> bundleComponents = new List<BundleComponent>();
 
     public class ProductLine {
+        public Id productId;
         public String name;
         public Decimal basePrice;
         public String currencyCode;
@@ -22,6 +23,11 @@ public with sharing class SalesCopilotRequestWrapper {
 
         public String getSellingModelKey() {
             return String.isBlank(sellingModel) ? SalesCopilotConstants.DEFAULT_SELLING_MODEL : sellingModel.toLowerCase();
+        }
+
+        /** A line with a productId reuses a catalog product instead of creating one. */
+        public Boolean isExisting() {
+            return productId != null;
         }
     }
 
@@ -93,6 +99,7 @@ public with sharing class SalesCopilotRequestWrapper {
 
     private static ProductLine toProductLine(Map<String, Object> source) {
         final ProductLine line = new ProductLine();
+        line.productId = toProductId(text(source, 'productId'));
         line.name = text(source, 'name');
         line.basePrice = toDecimal(source.get('basePrice'), 'basePrice');
         line.currencyCode = text(source, 'currency');
@@ -145,6 +152,21 @@ public with sharing class SalesCopilotRequestWrapper {
     private static String text(Map<String, Object> source, String key) {
         final Object value = source.get(key);
         return value == null ? null : String.valueOf(value).trim();
+    }
+
+    private static Id toProductId(String value) {
+        if (String.isBlank(value)) {
+            return null;
+        }
+        try {
+            final Id productId = Id.valueOf(value);
+            if (productId.getSObjectType() == Product2.SObjectType) {
+                return productId;
+            }
+        } catch (StringException e) {
+            // Reported below with the same message as a non-product id.
+        }
+        throw new InvalidRequestException('productId must be a Product2 id, got "' + value + '"');
     }
 
     private static Decimal toDecimal(Object value, String label) {
@@ -245,6 +267,14 @@ public with sharing class SalesCopilotRequestWrapper {
         if (pricingType == SalesCopilotConstants.PRICING_BUNDLE) {
             validateBundle(errors);
             return;
+        }
+        for (ProductLine line : products) {
+            if (line.isExisting()) {
+                errors.add(
+                    '"' + line.name + '" is already in the catalog; existing products can only join a new bundle, ' +
+                    'their prices and discounts are not changed by a build'
+                );
+            }
         }
         if (pricingType == SalesCopilotConstants.PRICING_FLAT && !tiers.isEmpty()) {
             errors.add('Flat pricing has no discounts; use volume-tier or remove the tiers');

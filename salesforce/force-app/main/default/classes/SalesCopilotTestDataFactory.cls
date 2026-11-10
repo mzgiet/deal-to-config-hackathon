@@ -54,18 +54,69 @@ public class SalesCopilotTestDataFactory {
         );
     }
 
+    public static void ensureBundleRelationshipType() {
+        if (SalesCopilotSelector.getBundleRelationshipType() == null) {
+            insert new ProductRelationshipType(
+                Name = 'Bundle to Bundle Component',
+                MainProductRoleCat = 'Bundle',
+                AssociatedProductRoleCat = 'BundleComponent'
+            );
+        }
+    }
+
+    /** A product already sold from the catalog: one-time model, price in the standard price book. */
+    public static Id createCatalogProduct(String name, Decimal unitPrice) {
+        final Product2 product = new Product2(Name = name, ProductCode = 'CAT-' + name.deleteWhitespace(), IsActive = true);
+        insert product;
+        final Id sellingModelId = SalesCopilotSelector.getSellingModelsByName(
+                new Set<String>{ SalesCopilotConstants.SELLING_MODEL_NAME_BY_KEY.get(SalesCopilotConstants.DEFAULT_SELLING_MODEL) }
+            )
+            .values()[0]
+            .Id;
+        insert new ProductSellingModelOption(Product2Id = product.Id, ProductSellingModelId = sellingModelId, IsDefault = true);
+        insert new PricebookEntry(
+            Pricebook2Id = Test.getStandardPricebookId(),
+            Product2Id = product.Id,
+            ProductSellingModelId = sellingModelId,
+            UnitPrice = unitPrice,
+            IsActive = true
+        );
+        return product.Id;
+    }
+
     // ─── Request presets (TS-01, TS-02, TS-03, TS-05) ─────────────────────────
 
     public static String volumeTierRequest(String requestId) {
+        return volumeTierRequest(requestId, CLOUD_ANALYTICS);
+    }
+
+    public static String volumeTierRequest(String requestId, String productName) {
         return JSON.serialize(
             request(
                 requestId,
-                new List<Object>{ product(CLOUD_ANALYTICS, 40, UserInfo.getDefaultCurrency()) },
+                new List<Object>{ product(productName, 40, UserInfo.getDefaultCurrency()) },
                 SalesCopilotConstants.PRICING_VOLUME_TIER,
                 new List<Object>{ tier(500, 15), tier(100, 10) },
                 'B2B'
             )
         );
+    }
+
+    public static String bundleRequest(String requestId, List<Object> products, List<Object> components) {
+        final Map<String, Object> body = request(requestId, products, SalesCopilotConstants.PRICING_BUNDLE, new List<Object>(), 'both');
+        ((Map<String, Object>) body.get('extracted')).put(
+            'bundle',
+            new Map<String, Object>{ 'name' => 'Test Bundle ' + requestId, 'components' => components }
+        );
+        return JSON.serialize(body);
+    }
+
+    public static Map<String, Object> catalogProduct(Id productId) {
+        return new Map<String, Object>{ 'productId' => productId };
+    }
+
+    public static Map<String, Object> component(String productName, Boolean isOptional) {
+        return new Map<String, Object>{ 'product' => productName, 'qty' => 1, 'optional' => isOptional };
     }
 
     public static String flatRequest(String requestId, String currencyCode) {
@@ -111,7 +162,7 @@ public class SalesCopilotTestDataFactory {
         return new Map<String, Object>{ 'from' => fromQuantity, 'discountPct' => discountPct };
     }
 
-    private static Map<String, Object> product(String name, Decimal basePrice, String currencyCode) {
+    public static Map<String, Object> product(String name, Decimal basePrice, String currencyCode) {
         return new Map<String, Object>{ 'name' => name, 'basePrice' => basePrice, 'currency' => currencyCode };
     }
 

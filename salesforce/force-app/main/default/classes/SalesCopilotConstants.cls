@@ -5,9 +5,11 @@ public with sharing class SalesCopilotConstants {
     public static final String STATUS_CREATED = 'created';
     public static final String STATUS_FAILED = 'failed';
     public static final String STATUS_FOUND = 'found';
+    public static final String STATUS_EXISTS = 'exists';
     public static final Integer HTTP_OK = 200;
     public static final Integer HTTP_BAD_REQUEST = 400;
     public static final Integer HTTP_NOT_FOUND = 404;
+    public static final Integer HTTP_CONFLICT = 409;
     public static final Integer HTTP_SERVER_ERROR = 500;
 
     // ─── Request contract ────────────────────────────────────────────────────

@@ -209,10 +209,25 @@ public with sharing class SalesCopilotSelector {
     public static List<PricebookEntry> getSellableEntries(Id pricebookId) {
         return [
             SELECT Id, Product2Id, UnitPrice, Product2.Name, Product2.ProductCode, Product2.Type,
-                Product2.Audience__c, Product2.Description, ProductSellingModel.Name,
+                Product2.Audience__c, Product2.Description, Product2.SalesCopilot_Request__r.Artifact_Url__c,
+                ProductSellingModel.Name,
                 ProductSellingModel.SellingModelType, ProductSellingModel.PricingTermUnit
             FROM PricebookEntry
             WHERE Pricebook2Id = :pricebookId AND IsActive = TRUE AND Product2.IsActive = TRUE
+            WITH USER_MODE
+            ORDER BY Product2.CreatedDate DESC
+        ];
+    }
+
+    // Name IN matches case-insensitively, which is what a duplicate-name check needs.
+    public static List<PricebookEntry> getSellableEntriesByProducts(Id pricebookId, Set<Id> productIds, Set<String> names) {
+        return [
+            SELECT Id, Product2Id, UnitPrice, Product2.Name, Product2.Audience__c,
+                Product2.SalesCopilot_Request__r.Artifact_Url__c,
+                ProductSellingModel.SellingModelType, ProductSellingModel.PricingTermUnit
+            FROM PricebookEntry
+            WHERE Pricebook2Id = :pricebookId AND IsActive = TRUE AND Product2.IsActive = TRUE
+                AND (Product2Id IN :productIds OR Product2.Name IN :names)
             WITH USER_MODE
             ORDER BY Product2.CreatedDate DESC
         ];

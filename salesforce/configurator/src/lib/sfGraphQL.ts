@@ -764,6 +764,41 @@ interface RequestOfferData {
   }};
 }
 
+const SF_ID_PATTERN = /^[A-Za-z0-9]{15,18}$/;
+
+/** Bundle components reused from the catalog belong to an earlier request, so they are read by id. */
+const catalogProductsQuery = (productIds: string[]) => {
+  const ids = productIds.map((id) => `"${id}"`).join(', ');
+  return `{
+  uiapi { query {
+    Product2(where: { Id: { in: [${ids}] } }, first: 50) {
+      edges { node {
+        Id
+        Name { value }
+        ProductCode { value }
+        Description { value }
+        Audience__c { value }
+        Type { value }
+      }}
+    }
+    PricebookEntry(
+      where: { and: [{ IsActive: { eq: true } } { Product2Id: { in: [${ids}] } }] }
+      first: 50
+    ) {
+      edges { node {
+        Product2Id { value }
+        UnitPrice { value }
+        ProductSellingModel { SellingModelType { value } }
+      }}
+    }
+  }}
+}`;
+};
+
+type CatalogProductsData = {
+  uiapi: { query: Pick<RequestOfferData['uiapi']['query'], 'Product2' | 'PricebookEntry'> };
+};
+
 const AUDIENCES: Audience[] = ['Business', 'Consumer', 'Both'];
 const REQUEST_PRICING_TYPES: RequestPricingType[] = ['flat', 'volume-tier', 'bundle'];
 
@@ -820,11 +855,25 @@ export async function fetchSFRequestOffer(requestId: string): Promise<RequestOff
     createdDate: node.CreatedDate.value,
   };
 
+  const requestProductIds = new Set(q.Product2.edges.map(({ node }) => node.Id));
+  const catalogIds = [
+    ...new Set(
+      q.ProductRelatedComponent.edges
+        .map(({ node }) => node.ChildProductId.value)
+        .filter((id) => !requestProductIds.has(id) && SF_ID_PATTERN.test(id)),
+    ),
+  ];
+  const catalog = catalogIds.length
+    ? (await gql<CatalogProductsData>(catalogProductsQuery(catalogIds))).uiapi.query
+    : { Product2: { edges: [] }, PricebookEntry: { edges: [] } };
+  const productNodes = [...q.Product2.edges, ...catalog.Product2.edges];
+  const entryNodes = [...q.PricebookEntry.edges, ...catalog.PricebookEntry.edges];
+
   const priceByProductId = new Map(
-    q.PricebookEntry.edges.map((e) => [e.node.Product2Id.value, e.node.UnitPrice.value]),
+    entryNodes.map((e) => [e.node.Product2Id.value, e.node.UnitPrice.value]),
   );
   const billingByProductId = new Map<string, Billing>(
-    q.PricebookEntry.edges.map((e) => [
+    entryNodes.map((e) => [
       e.node.Product2Id.value,
       e.node.ProductSellingModel?.SellingModelType.value === 'OneTime' ? 'one-time' : 'monthly',
     ]),
@@ -842,7 +891,7 @@ export async function fetchSFRequestOffer(requestId: string): Promise<RequestOff
     tiersByProductId.set(productId, tiers);
   }
 
-  const allProducts = q.Product2.edges.map(({ node: p }) => ({
+  const allProducts = productNodes.map(({ node: p }) => ({
     isBundle: p.Type.value === 'Bundle',
     product: {
       id: p.Id,
@@ -853,6 +902,7 @@ export async function fetchSFRequestOffer(requestId: string): Promise<RequestOff
       unitPrice: priceByProductId.get(p.Id) ?? null,
       tiers: tiersByProductId.get(p.Id) ?? [],
       billing: billingByProductId.get(p.Id) ?? 'one-time',
+      fromCatalog: !requestProductIds.has(p.Id),
     } satisfies RequestProduct,
   }));
   const productById = new Map(allProducts.map(({ product }) => [product.id, product]));

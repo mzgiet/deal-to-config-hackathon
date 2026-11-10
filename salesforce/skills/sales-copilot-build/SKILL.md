@@ -2,7 +2,7 @@
 name: sales-copilot-build
 description: "Cursor channel of the Sales Copilot PoC — turns a plain-language offer request from the chat (product, unit price, volume discounts, B2B/B2C) into a Sales Copilot request, shows it for approval, posts it to /services/apexrest/salescopilot/build on the PoC org, refreshes pricing and opens the configurator link. TRIGGER when: the user describes an offer or price to set up in Revenue Cloud in their own words (e.g. 'set up Cloud Analytics at $40 per user, 10% off from 100 users, business only'), asks to 'build it', 'configure it via Sales Copilot' or to run the Cursor channel of the PoC. DO NOT TRIGGER when: loading or editing a catalog from CSV or by hand (revenue-cloud-product-config), pricing an existing catalog record by record (revenue-cloud-price-config), product rules (revenue-cloud-product-rules), or working on the endpoint's Apex or the configurator's React code."
 metadata:
-  version: "0.2"
+  version: "0.4"
   domains: ["Salesforce", "Revenue Cloud", "Sales Copilot PoC"]
 ---
 
@@ -17,12 +17,40 @@ PoC org: `poc-salescopilot`. Run from the `salesforce/` folder of this repositor
 ## Workflow
 
 ```
+- [ ] 0. Read the catalog
 - [ ] 1. Extract the request from the user's words
 - [ ] 2. Show it and get approval (the approval is the consent to write to the org)
 - [ ] 3. POST it to the endpoint
 - [ ] 4. Refresh pricing
 - [ ] 5. Open the link and report
 ```
+
+### 0. Read the catalog
+
+Before proposing anything, check which of the named products already exist:
+
+```bash
+sf api request rest 'services/apexrest/salescopilot/catalog' -o poc-salescopilot
+```
+
+Match the user's products against `products[].name` (ignore case, and also catch obvious variants such as
+"mobile internet" vs "Mobile Internet 5G"). For every match:
+
+- **Inside a new bundle** → reuse it: send `{ "productId": "<productId>" }` instead of name and price. Tell the
+  user "Mobile Internet is already in the catalog at $10/month; the bundle will use it". If they gave a
+  different price, ask: reuse the catalog product at its price, or create a new product under another name.
+- **On its own** (flat or volume-tier) → the offer is already there, so build nothing. Show what exists (price,
+  billing, tiers, audience) next to what the user asked for, then offer the next step with `AskQuestion`:
+  - open the existing offer: its `artifactUrl` (present when Sales Copilot built it) in the browser, as in step 5;
+  - quote it for a customer: hand over to `sales-copilot-sell`;
+  - something different after all: a new product under another name, back to step 1.
+
+  If the user's price or tiers differ from the catalog, say so plainly: this channel does not change prices of
+  existing products, so the choice is the catalog offer as it is or a new product under another name.
+
+The endpoint enforces the same rule. A new product named like an active catalog product gets **HTTP 409**
+`{ "status": "exists", "error", "existingProducts": [{ "productId", "name", "unitPrice", "billing", "artifactUrl" }] }`
+and nothing is built. Handle it exactly as the "on its own" case above.
 
 ### 1. Extract
 
@@ -52,7 +80,8 @@ Rules the endpoint enforces — get them right here instead of round-tripping a 
 | Field | Rule |
 |---|---|
 | `requestId` | New for every build: `req_<short_slug>_<yyMMddHHmm>`, only `A-Z a-z 0-9 _ -`, max 80. Reusing an id returns the old link and builds nothing |
-| `products[].name` | Required, unique within the request |
+| `products[].productId` | Only for a catalog product reused as a bundle component. Name, price and billing come from the catalog: omit `basePrice` (a different one is rejected); `name`, if sent, must be the catalog name |
+| `products[].name` | Required for new products, unique within the request, and not the name of an active catalog product |
 | `products[].basePrice` | Number ≥ 0, the price per unit before discounts |
 | `products[].currency` | `USD` only (single-currency org); anything else is rejected |
 | `products[].sellingModel` | `one-time` (default) or `evergreen` (billed monthly). "Per month", "subscription", "monthly fee" → `evergreen`; hardware and set-up fees → `one-time`. `term` is not supported |
@@ -75,6 +104,9 @@ Bundles (`pricing.type: "bundle"`) add `extracted.bundle`:
 ```
 
 - Every component names one of `products[]`, once; `qty` ≥ 1 (default 1); at least one component is required.
+  A reused product is named by its catalog name.
+- A reused product must be sold to the bundle's audience (or to both).
+- `bundle.name` may not be the name of an active catalog product.
 - Without `components`, every product is a required component with qty 1. Without `name`, the bundle is named
   after its products joined with " + ".
 - The bundle bills monthly if any component is `evergreen`. Its price is the sum of its components.
@@ -86,7 +118,8 @@ Ask a short question instead of inventing a missing unit price or audience.
 ### 2. Approve
 
 Show the user a compact summary — product, unit price and billing (one-time / monthly), a tier table with the
-resulting unit prices or the bundle's components, audience, assumptions — and the JSON. Ask with `AskQuestion`: build it / change something / cancel. Post nothing without
+resulting unit prices or the bundle's components (marking which ones are reused from the catalog and which are
+new), audience, assumptions — and the JSON. Ask with `AskQuestion`: build it / change something / cancel. Post nothing without
 an explicit "build it" in this turn.
 
 ### 3. Build
@@ -100,6 +133,8 @@ sf api request rest 'services/apexrest/salescopilot/build' --method POST \
 - HTTP 200 → `{ "requestId", "status": "created", "artifactUrl" }`.
 - HTTP 400 → `{ "status": "failed", "error" }`: the request broke a rule above. Show the error, fix the JSON with a
   **new** `requestId`, return to step 2.
+- HTTP 409 → `status: "exists"`: a product with that name is already sold (the catalog changed since step 0).
+  Nothing was created; treat `existingProducts` as in step 0.
 - HTTP 500 → org setup or Salesforce rejected the records; nothing was created. Show the error and stop.
 
 ### 4. Refresh pricing

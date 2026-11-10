@@ -16,9 +16,19 @@ public with sharing class SalesCopilotBuildService {
             return created(request.requestId, existing.Artifact_Url__c);
         }
 
-        final List<String> errors = request.validate(UserInfo.getDefaultCurrency());
+        final CatalogCheck check = resolveCatalogProducts(request);
+        final List<String> errors = check.errors;
+        errors.addAll(request.validate(UserInfo.getDefaultCurrency()));
         if (!errors.isEmpty()) {
+            errors.addAll(check.conflicts);
             return failed(request.requestId, SalesCopilotConstants.HTTP_BAD_REQUEST, String.join(errors, '; '));
+        }
+        // Only name clashes left: the offer is probably already there, so the caller can open it instead.
+        if (!check.conflicts.isEmpty()) {
+            return SalesCopilotBuildResponse.builderInstance()
+                .withRequestId(request.requestId)
+                .withExisting(check.existingProducts, String.join(check.conflicts, '; '))
+                .get();
         }
 
         final Savepoint savepoint = Database.setSavepoint();
@@ -44,6 +54,136 @@ public with sharing class SalesCopilotBuildService {
         }
     }
 
+    // ─── Catalog ─────────────────────────────────────────────────────────────
+
+    // A reused product keeps its catalog name, price and billing; a new product may not take the name of one
+    // already sold, or the catalog ends up with two products the rep cannot tell apart.
+    private class CatalogCheck {
+        public final List<String> errors = new List<String>();
+        public final List<String> conflicts = new List<String>();
+        public final List<SalesCopilotBuildResponse.ExistingProduct> existingProducts = new List<SalesCopilotBuildResponse.ExistingProduct>();
+
+        public void addConflict(PricebookEntry entry, String message) {
+            conflicts.add(message);
+            final SalesCopilotBuildResponse.ExistingProduct product = new SalesCopilotBuildResponse.ExistingProduct();
+            product.productId = entry.Product2Id;
+            product.name = entry.Product2.Name;
+            product.unitPrice = entry.UnitPrice;
+            product.billing = toSellingModelKey(entry.ProductSellingModel) == SalesCopilotConstants.SELLING_MODEL_EVERGREEN
+                ? 'monthly'
+                : 'one-time';
+            product.artifactUrl = entry.Product2.SalesCopilot_Request__r?.Artifact_Url__c;
+            existingProducts.add(product);
+        }
+    }
+
+    private static CatalogCheck resolveCatalogProducts(SalesCopilotRequestWrapper request) {
+        final CatalogCheck check = new CatalogCheck();
+        final List<String> errors = check.errors;
+        final Set<Id> productIds = new Set<Id>();
+        final Set<String> newNames = new Set<String>();
+        for (SalesCopilotRequestWrapper.ProductLine line : request.products) {
+            if (line.isExisting()) {
+                productIds.add(line.productId);
+            } else if (String.isNotBlank(line.name)) {
+                newNames.add(line.name);
+            }
+        }
+        if (request.isBundle() && String.isNotBlank(request.bundleName)) {
+            newNames.add(request.bundleName);
+        }
+        final Id pricebookId = SalesCopilotSelector.getStandardPricebookId();
+        if (pricebookId == null || (productIds.isEmpty() && newNames.isEmpty())) {
+            return check;
+        }
+
+        final Map<Id, PricebookEntry> entriesByProductId = new Map<Id, PricebookEntry>();
+        final Map<String, PricebookEntry> entriesByName = new Map<String, PricebookEntry>();
+        for (PricebookEntry entry : SalesCopilotSelector.getSellableEntriesByProducts(pricebookId, productIds, newNames)) {
+            if (!entriesByProductId.containsKey(entry.Product2Id)) {
+                entriesByProductId.put(entry.Product2Id, entry);
+            }
+            if (!entriesByName.containsKey(entry.Product2.Name.toLowerCase())) {
+                entriesByName.put(entry.Product2.Name.toLowerCase(), entry);
+            }
+        }
+
+        for (SalesCopilotRequestWrapper.ProductLine line : request.products) {
+            if (line.isExisting()) {
+                applyCatalogEntry(line, entriesByProductId.get(line.productId), request.getAudience(), errors);
+            } else if (String.isNotBlank(line.name) && entriesByName.containsKey(line.name.toLowerCase())) {
+                final PricebookEntry entry = entriesByName.get(line.name.toLowerCase());
+                check.addConflict(
+                    entry,
+                    '"' + entry.Product2.Name + '" already exists in the catalog (productId ' + entry.Product2Id + ', ' +
+                    describePrice(entry) + '); send its productId to reuse it, or give the new product another name'
+                );
+            }
+        }
+        if (request.isBundle() && String.isNotBlank(request.bundleName) && entriesByName.containsKey(request.bundleName.toLowerCase())) {
+            check.addConflict(
+                entriesByName.get(request.bundleName.toLowerCase()),
+                'A product named "' + request.bundleName + '" already exists in the catalog; give the bundle another name'
+            );
+        }
+        return check;
+    }
+
+    private static void applyCatalogEntry(
+        SalesCopilotRequestWrapper.ProductLine line,
+        PricebookEntry entry,
+        String requestAudience,
+        List<String> errors
+    ) {
+        if (entry == null) {
+            errors.add('productId ' + line.productId + ' is not an active product in the price book');
+            return;
+        }
+        final String catalogName = entry.Product2.Name;
+        if (String.isNotBlank(line.name) && !line.name.equalsIgnoreCase(catalogName)) {
+            errors.add('productId ' + line.productId + ' is "' + catalogName + '" in the catalog, not "' + line.name + '"');
+            return;
+        }
+        if (line.basePrice != null && line.basePrice != entry.UnitPrice) {
+            errors.add(
+                '"' + catalogName + '" is in the catalog at ' + describePrice(entry) +
+                '; a build does not change the price of an existing product, so omit basePrice'
+            );
+        }
+        final String sellingModelKey = toSellingModelKey(entry.ProductSellingModel);
+        if (sellingModelKey == null) {
+            errors.add('"' + catalogName + '" has a selling model a bundle cannot carry yet');
+        }
+        final String productAudience = entry.Product2.Audience__c;
+        if (
+            String.isNotBlank(productAudience) &&
+            productAudience != SalesCopilotConstants.AUDIENCE_BOTH &&
+            requestAudience != null &&
+            productAudience != requestAudience
+        ) {
+            errors.add('"' + catalogName + '" is sold to ' + productAudience + ' customers only, not ' + requestAudience);
+        }
+        line.name = catalogName;
+        line.basePrice = entry.UnitPrice;
+        line.sellingModel = sellingModelKey;
+    }
+
+    private static String toSellingModelKey(ProductSellingModel model) {
+        if (model == null || model.SellingModelType == 'OneTime') {
+            return SalesCopilotConstants.SELLING_MODEL_ONE_TIME;
+        }
+        if (model.SellingModelType == 'Evergreen' && model.PricingTermUnit == 'Months') {
+            return SalesCopilotConstants.SELLING_MODEL_EVERGREEN;
+        }
+        return null;
+    }
+
+    private static String describePrice(PricebookEntry entry) {
+        final String key = toSellingModelKey(entry.ProductSellingModel);
+        return entry.UnitPrice.setScale(2) + ' ' + UserInfo.getDefaultCurrency() +
+            (key == SalesCopilotConstants.SELLING_MODEL_EVERGREEN ? ' per month' : '');
+    }
+
     // ─── Configuration ───────────────────────────────────────────────────────
 
     private static String createConfiguration(SalesCopilotRequestWrapper request, String body) {
@@ -55,9 +195,14 @@ public with sharing class SalesCopilotBuildService {
         final Map<String, Product2> productsByName = buildProducts(request, requestRecord.Id);
         insert productsByName.values();
 
+        // Reused products already have their selling model option, price and category.
         final Map<Id, ProductSellingModel> sellingModelByProductId = new Map<Id, ProductSellingModel>();
         final Map<Id, Decimal> priceByProductId = new Map<Id, Decimal>();
         for (SalesCopilotRequestWrapper.ProductLine line : request.products) {
+            if (line.isExisting()) {
+                productsByName.put(line.name.toLowerCase(), new Product2(Id = line.productId, Name = line.name));
+                continue;
+            }
             final Id productId = productsByName.get(line.name.toLowerCase()).Id;
             sellingModelByProductId.put(productId, setup.getSellingModel(line.getSellingModelKey()));
             priceByProductId.put(productId, line.basePrice);
@@ -110,6 +255,9 @@ public with sharing class SalesCopilotBuildService {
         Integer position = 0;
         for (SalesCopilotRequestWrapper.ProductLine line : request.products) {
             position++;
+            if (line.isExisting()) {
+                continue;
+            }
             productsByName.put(
                 line.name.toLowerCase(),
                 new Product2(

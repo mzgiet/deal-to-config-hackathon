@@ -399,7 +399,10 @@ function BundleCard({ bundle, side, requestId }: { bundle: RequestBundle; side: 
                     {component.quantity > 1 && `${component.quantity} × `}
                     {product.name}
                   </div>
-                  <div className="text-syn-muted text-xs">{component.isOptional ? 'Optional add-on' : 'Included'}</div>
+                  <div className="text-syn-muted text-xs">
+                    {component.isOptional ? 'Optional add-on' : 'Included'}
+                    {product.fromCatalog && ' · already in the catalog'}
+                  </div>
                 </div>
                 <div className="text-right tabular-nums">
                   <div className={`text-sm font-semibold ${on ? 'text-syn-text' : 'text-syn-secondary'}`}>
