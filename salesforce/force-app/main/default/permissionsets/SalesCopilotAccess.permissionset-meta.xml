@@ -12,6 +12,10 @@
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
+        <apexClass>SalesCopilotCheckResource</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
         <apexClass>SalesCopilotCustomerResource</apexClass>
         <enabled>true</enabled>
     </classAccesses>
@@ -57,6 +61,11 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>Quote.Presentation__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>SalesCopilot_Request__c.Record_Url__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

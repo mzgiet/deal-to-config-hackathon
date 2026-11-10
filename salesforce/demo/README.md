@@ -11,10 +11,11 @@ question card. Prompts can be typed in English or Polish.
 | [03](03-same-blocks-other-customer.md) | Same blocks, another customer | Sales rep | `sales-copilot-sell` | A different page from the same blocks for a small studio |
 | [04](04-product-not-in-catalog.md) | Product not in the catalog | Sales rep → product manager | both | The rep's agent hands off; one sentence puts the offer in Revenue Cloud |
 | [05](05-bundle-with-catalog-product.md) | Bundle reusing a catalog product | Product manager | `sales-copilot-build` | The build knows the catalog: reuses, does not duplicate |
+| [06](06-catalog-check.md) | Catalog check: exists, similar or new | Anyone | `sales-copilot-build` | The agent checks the catalog first, the person decides; the page opens the record in Salesforce |
 
 ## The 5-minute run
 
-The main story is 01 → 02, with 03 if there is time. 04 and 05 are reserves for questions from the floor.
+The main story is 01 → 02, with 03 if there is time. 04, 05 and 06 are reserves for questions from the floor.
 
 | Time | What | Scenario |
 |---|---|---|
@@ -54,6 +55,8 @@ changes per customer is the choice, the order and the content of the blocks.
       skill, then refresh pricing twice.
 - [ ] For 04: the opposite, Cloud Backup **must not** exist (reset it with `scripts/apex/salescopilot-reset-request.apex`).
       Delete the quotes that contain Cloud Backup first; Salesforce does not delete a product that is on a quote line.
+- [ ] For 06: Cloud Backup and Business VoIP exist ([`../examples/req_business_voip.json`](../examples/req_business_voip.json)),
+      Email Security does not.
 - [ ] A recording of a full run as the fallback.
 
 Only fictional data: the customers come from the seed script, the products from the examples.

@@ -1,0 +1,13 @@
+{
+  "requestId": "req_business_voip",
+  "rawRequest": "Ustaw Business VoIP za 12 $ za użytkownika miesięcznie, tylko dla firm.",
+  "source": { "channel": "cursor" },
+  "extracted": {
+    "products": [{ "name": "Business VoIP", "basePrice": 12, "currency": "USD", "sellingModel": "evergreen" }],
+    "pricing": { "type": "flat" },
+    "availability": "B2B"
+  },
+  "summary": "Business VoIP at $12 per user per month, for business customers",
+  "assumptions": ["Price is per user per month"],
+  "target": "revenue-cloud"
+}

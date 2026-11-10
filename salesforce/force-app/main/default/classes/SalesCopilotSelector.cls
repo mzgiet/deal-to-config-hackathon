@@ -2,7 +2,7 @@ public with sharing class SalesCopilotSelector {
 
     public static SalesCopilot_Request__c getRequestByRequestId(String requestId) {
         final List<SalesCopilot_Request__c> requests = [
-            SELECT Id, Request_Id__c, Artifact_Url__c, Audience__c, Channel__c, Pricing_Type__c
+            SELECT Id, Request_Id__c, Artifact_Url__c, Record_Url__c, Audience__c, Channel__c, Pricing_Type__c
             FROM SalesCopilot_Request__c
             WHERE Request_Id__c = :requestId
             WITH USER_MODE

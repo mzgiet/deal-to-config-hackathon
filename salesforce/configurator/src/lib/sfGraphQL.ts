@@ -670,6 +670,7 @@ const requestOfferQuery = (requestId: string) => `{
         Raw_Request__c { value }
         Assumptions__c { value }
         Presentation__c { value }
+        Record_Url__c { value }
         CreatedDate { value }
       }}
     }
@@ -739,6 +740,7 @@ interface RequestOfferData {
       Raw_Request__c: { value: string | null };
       Assumptions__c: { value: string | null };
       Presentation__c: { value: string | null };
+      Record_Url__c: { value: string | null };
       CreatedDate: { value: string };
     }}[] };
     Product2: { edges: { node: {
@@ -1000,6 +1002,7 @@ export async function fetchSFRequestOffer(requestId: string): Promise<RequestOff
       .filter(Boolean),
     createdDate: node.CreatedDate.value,
     presentation: parsePresentation(node.Presentation__c.value),
+    recordUrl: node.Record_Url__c.value,
   };
 
   const requestProductIds = new Set(q.Product2.edges.map(({ node }) => node.Id));

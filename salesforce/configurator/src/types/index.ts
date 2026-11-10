@@ -111,6 +111,8 @@ export interface ConfigurationRequest {
   createdDate: string;
   /** Page the agent composed; null renders the default layout. */
   presentation: Presentation | null;
+  /** Product or bundle record in Revenue Cloud; null for requests built before it was stored. */
+  recordUrl: string | null;
 }
 
 export type PresentationSectionType = 'offer' | 'savings' | 'highlights' | 'assumptions' | 'request';

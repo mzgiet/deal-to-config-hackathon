@@ -2,7 +2,7 @@
 name: sales-copilot-build
 description: "Cursor channel of the Sales Copilot PoC — turns a plain-language offer request from the chat (product, unit price, volume discounts, B2B/B2C) into a Sales Copilot request, shows it for approval, posts it to /services/apexrest/salescopilot/build on the PoC org, refreshes pricing and opens the configurator link. TRIGGER when: the user describes an offer or price to set up in Revenue Cloud in their own words (e.g. 'set up Cloud Analytics at $40 per user, 10% off from 100 users, business only'), asks to 'build it', 'configure it via Sales Copilot' or to run the Cursor channel of the PoC. DO NOT TRIGGER when: loading or editing a catalog from CSV or by hand (revenue-cloud-product-config), pricing an existing catalog record by record (revenue-cloud-price-config), product rules (revenue-cloud-product-rules), or working on the endpoint's Apex or the configurator's React code."
 metadata:
-  version: "0.5"
+  version: "0.6"
   domains: ["Salesforce", "Revenue Cloud", "Sales Copilot PoC"]
 ---
 
@@ -17,7 +17,7 @@ PoC org: `poc-salescopilot`. Run from the `salesforce/` folder of this repositor
 ## Workflow
 
 ```
-- [ ] 0. Read the catalog
+- [ ] 0. Check the catalog (draft the request, POST it to /check, let the user decide on matches)
 - [ ] 1. Extract the request from the user's words
 - [ ] 2. Show it and get approval (the approval is the consent to write to the org)
 - [ ] 3. POST it to the endpoint
@@ -25,32 +25,41 @@ PoC org: `poc-salescopilot`. Run from the `salesforce/` folder of this repositor
 - [ ] 5. Open the link and report
 ```
 
-### 0. Read the catalog
+### 0. Check the catalog
 
-Before proposing anything, check which of the named products already exist:
+Before proposing anything, draft the request as in step 1 (`/tmp/sales-copilot/<requestId>.json`) and ask the
+endpoint what the catalog already has. It builds nothing:
 
 ```bash
-sf api request rest 'services/apexrest/salescopilot/catalog' -o poc-salescopilot
+sf api request rest 'services/apexrest/salescopilot/check' --method POST \
+  --header 'Content-Type: application/json' --body @/tmp/sales-copilot/<requestId>.json \
+  -o poc-salescopilot < /dev/null
 ```
 
-Match the user's products against `products[].name` (ignore case, and also catch obvious variants such as
-"mobile internet" vs "Mobile Internet 5G"). For every match:
+Response (HTTP 200): `{ "requestId", "status", "problems", "matches": [{ "forProduct", "match", "sharedWords",
+"productId", "name", "type", "audience", "billing", "listPrice", "artifactUrl", "recordUrl" }] }`. `problems`
+lists what step 3 would reject with 400; fix them in the draft first. `match` is `same` (that exact name is sold)
+or `similar` (the names share a significant word, e.g. "Backup w chmurze" and "Cloud Backup" share "backup").
+The word check is crude: it misses translations ("Kopia zapasowa" vs "Cloud Backup"), so also judge obvious
+variants yourself from `services/apexrest/salescopilot/catalog`.
 
-- **Inside a new bundle** → reuse it: send `{ "productId": "<productId>" }` instead of name and price. Tell the
-  user "Mobile Internet is already in the catalog at $10/month; the bundle will use it". If they gave a
-  different price, ask: reuse the catalog product at its price, or create a new product under another name.
-- **On its own** (flat or volume-tier) → the offer is already there, so build nothing. Show what exists (price,
-  billing, tiers, audience) next to what the user asked for, then offer the next step with `AskQuestion`:
-  - open the existing offer: its `artifactUrl` (present when Sales Copilot built it) in the browser, as in step 5;
-  - quote it for a customer: hand over to `sales-copilot-sell`;
-  - something different after all: a new product under another name, back to step 1.
+- **`new`** → nothing like it is sold. Go on to step 2 and say so in one line ("nothing similar in the catalog").
+- **`exists` or `similar`** → show the matches next to what the user asked for: name, price and billing,
+  audience, and the links (`artifactUrl` page when Sales Copilot built it, `recordUrl` record in Salesforce).
+  Then let the user decide with `AskQuestion` — this is their call, not yours:
+  - **reuse it inside the bundle** (bundles only): send `{ "productId": "<productId>" }` instead of name and
+    price. If the user gave a different price, say the catalog price stays;
+  - **use the existing one**: build nothing; open its `artifactUrl` or `recordUrl` in the browser as in step 5,
+    or quote it for a customer by handing over to `sales-copilot-sell`;
+  - **create a new one**: keep building. On `same` the new product needs another name (a duplicate name is
+    rejected); on `similar` the name may stay.
 
   If the user's price or tiers differ from the catalog, say so plainly: this channel does not change prices of
-  existing products, so the choice is the catalog offer as it is or a new product under another name.
+  existing products, so the choice is the catalog offer as it is or a new product.
 
-The endpoint enforces the same rule. A new product named like an active catalog product gets **HTTP 409**
-`{ "status": "exists", "error", "existingProducts": [{ "productId", "name", "unitPrice", "billing", "artifactUrl" }] }`
-and nothing is built. Handle it exactly as the "on its own" case above.
+The build endpoint enforces the name rule. A new product named like an active catalog product gets **HTTP 409**
+`{ "status": "exists", "error", "existingProducts": [{ "productId", "name", "unitPrice", "billing", "artifactUrl", "recordUrl" }] }`
+and nothing is built. Handle it as a `same` match above.
 
 ### 1. Extract
 
@@ -166,7 +175,8 @@ sf api request rest 'services/apexrest/salescopilot/build' --method POST \
   -o poc-salescopilot
 ```
 
-- HTTP 200 → `{ "requestId", "status": "created", "artifactUrl" }`.
+- HTTP 200 → `{ "requestId", "status": "created", "artifactUrl", "recordUrl" }`. `recordUrl` opens the bundle, or
+  the first new product, in Revenue Cloud; the page carries the same link as its "Open in Salesforce" button.
 - HTTP 400 → `{ "status": "failed", "error" }`: the request broke a rule above. Show the error, fix the JSON with a
   **new** `requestId`, return to step 2.
 - HTTP 409 → `status: "exists"`: a product with that name is already sold (the catalog changed since step 0).
@@ -188,8 +198,8 @@ and does not wait for it.
 
 Open `artifactUrl` in the Cursor browser (`cursor-ide-browser` → `browser_navigate`); the session must already be
 logged in to `poc-salescopilot` (`sf org open -o poc-salescopilot` once). Take a screenshot and show it with the
-link. Report in the user's language: what was built (product, price, tiers, audience), the link, and the
-assumptions made.
+link. Report in the user's language: what was built (product, price, tiers, audience), both links (the page and
+`recordUrl` for the actual configuration in Salesforce), and the assumptions made.
 
 ## Reset a demo request
 

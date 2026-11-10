@@ -105,6 +105,124 @@ public with sharing class SalesCopilotCatalogService {
         return response;
     }
 
+    // ─── Check a request against the catalog (builds nothing) ────────────────
+
+    public class CheckResponse {
+        public String requestId;
+        public String status;
+        public String error;
+        public List<String> problems;
+        public List<CatalogMatch> matches = new List<CatalogMatch>();
+        public transient Integer statusCode;
+    }
+
+    /** A catalog product that has the requested name (match "same") or shares a significant word with it. */
+    public class CatalogMatch {
+        public String forProduct;
+        public String match;
+        public List<String> sharedWords;
+        public String productId;
+        public String name;
+        public String type;
+        public String audience;
+        public String billing;
+        public Decimal listPrice;
+        public String artifactUrl;
+        public String recordUrl;
+    }
+
+    // "exists" means a build would be refused with 409; "similar" builds, so the caller asks before it does.
+    public static CheckResponse check(String body) {
+        final CheckResponse response = new CheckResponse();
+        SalesCopilotRequestWrapper request;
+        try {
+            request = SalesCopilotRequestWrapper.parse(body);
+        } catch (SalesCopilotRequestWrapper.InvalidRequestException e) {
+            response.status = SalesCopilotConstants.STATUS_FAILED;
+            response.error = e.getMessage();
+            response.statusCode = SalesCopilotConstants.HTTP_BAD_REQUEST;
+            return response;
+        }
+        response.requestId = request.requestId;
+        final List<String> problems = request.validate(UserInfo.getDefaultCurrency());
+        response.problems = problems.isEmpty() ? null : problems;
+
+        final List<String> requestedNames = new List<String>();
+        for (SalesCopilotRequestWrapper.ProductLine line : request.products) {
+            if (!line.isExisting() && String.isNotBlank(line.name)) {
+                requestedNames.add(line.name);
+            }
+        }
+        if (request.isBundle() && String.isNotBlank(request.bundleName)) {
+            requestedNames.add(request.bundleName);
+        }
+
+        final List<CatalogProduct> catalog = new List<CatalogProduct>();
+        final Set<String> seenNames = new Set<String>();
+        for (PricebookEntry entry : SalesCopilotSelector.getSellableEntries(SalesCopilotSelector.getStandardPricebookId())) {
+            if (seenNames.add(entry.Product2.Name.toLowerCase())) {
+                catalog.add(toProduct(entry));
+            }
+        }
+
+        final List<CatalogMatch> same = new List<CatalogMatch>();
+        final List<CatalogMatch> similar = new List<CatalogMatch>();
+        for (String requestedName : requestedNames) {
+            final Set<String> requestedWords = toWords(requestedName);
+            for (CatalogProduct product : catalog) {
+                if (product.name.equalsIgnoreCase(requestedName)) {
+                    same.add(toMatch(requestedName, SalesCopilotConstants.MATCH_SAME, product, null));
+                    continue;
+                }
+                final Set<String> shared = toWords(product.name);
+                shared.retainAll(requestedWords);
+                if (!shared.isEmpty()) {
+                    similar.add(toMatch(requestedName, SalesCopilotConstants.MATCH_SIMILAR, product, new List<String>(shared)));
+                }
+            }
+        }
+        response.matches.addAll(same);
+        response.matches.addAll(similar);
+        response.status = !same.isEmpty()
+            ? SalesCopilotConstants.STATUS_EXISTS
+            : (!similar.isEmpty() ? SalesCopilotConstants.STATUS_SIMILAR : SalesCopilotConstants.STATUS_NEW);
+        response.statusCode = SalesCopilotConstants.HTTP_OK;
+        return response;
+    }
+
+    private static CatalogMatch toMatch(String requestedName, String match, CatalogProduct product, List<String> sharedWords) {
+        final CatalogMatch result = new CatalogMatch();
+        result.forProduct = requestedName;
+        result.match = match;
+        result.sharedWords = sharedWords;
+        result.productId = product.productId;
+        result.name = product.name;
+        result.type = product.type;
+        result.audience = product.audience;
+        result.billing = product.billing;
+        result.listPrice = product.listPrice;
+        result.artifactUrl = product.artifactUrl;
+        result.recordUrl = toRecordUrl(product.productId);
+        return result;
+    }
+
+    public static String toRecordUrl(String productId) {
+        return URL.getOrgDomainUrl().toExternalForm() + '/lightning/r/Product2/' + productId + '/view';
+    }
+
+    private static Set<String> toWords(String value) {
+        final Set<String> words = new Set<String>();
+        for (String word : value.toLowerCase().split('[^\\p{L}\\p{N}]+')) {
+            if (
+                word.length() >= SalesCopilotConstants.MATCH_MIN_WORD_LENGTH &&
+                !SalesCopilotConstants.MATCH_IGNORED_WORDS.contains(word)
+            ) {
+                words.add(word);
+            }
+        }
+        return words;
+    }
+
     private static CatalogProduct toProduct(PricebookEntry entry) {
         final CatalogProduct product = new CatalogProduct();
         product.productId = entry.Product2Id;

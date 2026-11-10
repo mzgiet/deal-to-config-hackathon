@@ -13,7 +13,7 @@ public with sharing class SalesCopilotBuildService {
 
         final SalesCopilot_Request__c existing = SalesCopilotSelector.getRequestByRequestId(request.requestId);
         if (existing != null) {
-            return created(request.requestId, existing.Artifact_Url__c);
+            return created(request.requestId, existing);
         }
 
         final CatalogCheck check = resolveCatalogProducts(request);
@@ -73,6 +73,7 @@ public with sharing class SalesCopilotBuildService {
                 ? 'monthly'
                 : 'one-time';
             product.artifactUrl = entry.Product2.SalesCopilot_Request__r?.Artifact_Url__c;
+            product.recordUrl = SalesCopilotCatalogService.toRecordUrl(entry.Product2Id);
             existingProducts.add(product);
         }
     }
@@ -186,7 +187,7 @@ public with sharing class SalesCopilotBuildService {
 
     // ─── Configuration ───────────────────────────────────────────────────────
 
-    private static String createConfiguration(SalesCopilotRequestWrapper request, String body) {
+    private static SalesCopilot_Request__c createConfiguration(SalesCopilotRequestWrapper request, String body) {
         final OrgSetup setup = new OrgSetup(request);
 
         final SalesCopilot_Request__c requestRecord = buildRequestRecord(request, body);
@@ -232,8 +233,11 @@ public with sharing class SalesCopilotBuildService {
         }
 
         requestRecord.Artifact_Url__c = buildArtifactUrl(request.requestId, requestRecord.Id);
+        requestRecord.Record_Url__c = SalesCopilotCatalogService.toRecordUrl(
+            bundle != null ? bundle.Id : productsByName.get(request.products[0].name.toLowerCase()).Id
+        );
         update requestRecord;
-        return requestRecord.Artifact_Url__c;
+        return requestRecord;
     }
 
     private static SalesCopilot_Request__c buildRequestRecord(SalesCopilotRequestWrapper request, String body) {
@@ -462,8 +466,11 @@ public with sharing class SalesCopilotBuildService {
 
     // ─── Responses ───────────────────────────────────────────────────────────
 
-    private static SalesCopilotBuildResponse created(String requestId, String artifactUrl) {
-        return SalesCopilotBuildResponse.builderInstance().withRequestId(requestId).withCreated(artifactUrl).get();
+    private static SalesCopilotBuildResponse created(String requestId, SalesCopilot_Request__c requestRecord) {
+        return SalesCopilotBuildResponse.builderInstance()
+            .withRequestId(requestId)
+            .withCreated(requestRecord.Artifact_Url__c, requestRecord.Record_Url__c)
+            .get();
     }
 
     private static SalesCopilotBuildResponse failed(String requestId, Integer statusCode, String error) {

@@ -38,8 +38,15 @@ The body is the contract below.
 **Success: HTTP 200**
 
 ```json
-{ "requestId": "req_mf3k_001", "status": "created", "artifactUrl": "https://..." }
+{ "requestId": "req_mf3k_001", "status": "created", "artifactUrl": "https://...", "recordUrl": "https://..." }
 ```
+
+`recordUrl` (added later, safe to ignore) opens the built product or bundle record in Lightning, for a
+"Open in Salesforce" button next to "Open configurator".
+
+**Catalog check (optional, before Build it):** `POST .../salescopilot/check` with the same body answers
+`{ "status": "exists" | "similar" | "new", "matches": [...] }` and builds nothing. Details and a Slack sketch:
+[`salesforce/TESTING.md`](../salesforce/TESTING.md), section 3.
 
 **Failure: HTTP 4xx/5xx** with a readable message:
 

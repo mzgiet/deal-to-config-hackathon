@@ -1,0 +1,13 @@
+{
+  "requestId": "chk_backup_similar",
+  "rawRequest": "Backup w chmurze za 9 $ miesięcznie, dla firm.",
+  "source": { "channel": "cursor" },
+  "extracted": {
+    "products": [{ "name": "Backup w chmurze", "basePrice": 9, "currency": "USD", "sellingModel": "evergreen" }],
+    "pricing": { "type": "flat" },
+    "availability": "B2B"
+  },
+  "summary": "Backup w chmurze at $9 per user per month, for business customers",
+  "assumptions": [],
+  "target": "revenue-cloud"
+}

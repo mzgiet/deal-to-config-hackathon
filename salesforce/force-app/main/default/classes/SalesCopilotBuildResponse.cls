@@ -3,6 +3,7 @@ public with sharing class SalesCopilotBuildResponse {
     public String requestId;
     public String status;
     public String artifactUrl;
+    public String recordUrl;
     public String error;
     public List<ExistingProduct> existingProducts;
     public transient Integer statusCode;
@@ -14,6 +15,7 @@ public with sharing class SalesCopilotBuildResponse {
         public Decimal unitPrice;
         public String billing;
         public String artifactUrl;
+        public String recordUrl;
     }
 
     public static Builder builderInstance() {
@@ -33,9 +35,10 @@ public with sharing class SalesCopilotBuildResponse {
             return this;
         }
 
-        public Builder withCreated(String artifactUrl) {
+        public Builder withCreated(String artifactUrl, String recordUrl) {
             this.response.status = SalesCopilotConstants.STATUS_CREATED;
             this.response.artifactUrl = artifactUrl;
+            this.response.recordUrl = recordUrl;
             this.response.statusCode = SalesCopilotConstants.HTTP_OK;
             return this;
         }

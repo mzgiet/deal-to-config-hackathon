@@ -128,12 +128,27 @@ function RequestHeader({ request }: { request: ConfigurationRequest }) {
           </span>
         )}
       </div>
-      <h1 className="text-2xl md:text-3xl font-bold text-syn-text leading-snug max-w-4xl">
-        {presentation?.headline ?? request.summary}
-      </h1>
-      {presentation?.headline && request.summary && (
-        <p className="text-syn-secondary text-sm max-w-4xl">{request.summary}</p>
-      )}
+      <div className="flex flex-col md:flex-row md:items-start gap-4">
+        <div className="space-y-3 flex-1 min-w-0">
+          <h1 className="text-2xl md:text-3xl font-bold text-syn-text leading-snug max-w-4xl">
+            {presentation?.headline ?? request.summary}
+          </h1>
+          {presentation?.headline && request.summary && (
+            <p className="text-syn-secondary text-sm max-w-4xl">{request.summary}</p>
+          )}
+        </div>
+        {request.recordUrl && (
+          <a
+            href={request.recordUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-2 shrink-0 px-4 py-2.5 rounded-lg text-sm font-semibold bg-syn-accent text-syn-on-accent hover:brightness-95 transition"
+          >
+            Open in Salesforce
+            <ExternalLink size={14} />
+          </a>
+        )}
+      </div>
     </section>
   );
 }

@@ -6,6 +6,8 @@ public with sharing class SalesCopilotConstants {
     public static final String STATUS_FAILED = 'failed';
     public static final String STATUS_FOUND = 'found';
     public static final String STATUS_EXISTS = 'exists';
+    public static final String STATUS_NEW = 'new';
+    public static final String STATUS_SIMILAR = 'similar';
     public static final Integer HTTP_OK = 200;
     public static final Integer HTTP_BAD_REQUEST = 400;
     public static final Integer HTTP_NOT_FOUND = 404;
@@ -23,6 +25,18 @@ public with sharing class SalesCopilotConstants {
     public static final String SELLING_MODEL_ONE_TIME = 'one-time';
     public static final String SELLING_MODEL_EVERGREEN = 'evergreen';
     public static final String DEFAULT_SELLING_MODEL = SELLING_MODEL_ONE_TIME;
+
+    // ─── Catalog check ───────────────────────────────────────────────────────
+
+    public static final String MATCH_SAME = 'same';
+    public static final String MATCH_SIMILAR = 'similar';
+    public static final Integer MATCH_MIN_WORD_LENGTH = 3;
+    // Words too common in product names to make two products similar.
+    public static final Set<String> MATCH_IGNORED_WORDS = new Set<String>{
+        'the', 'and', 'for', 'with', 'plus', 'pro', 'basic', 'premium', 'new',
+        'bundle', 'package', 'pack', 'kit', 'service', 'services', 'licence', 'license',
+        'per', 'month', 'monthly', 'user', 'users', 'dla', 'nowy', 'pakiet', 'usługa'
+    };
 
     // ─── Presentation (page the agent composes) ──────────────────────────────
 

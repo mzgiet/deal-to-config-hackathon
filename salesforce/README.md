@@ -12,7 +12,7 @@ before the request arrives.
 
 | Path | What |
 |---|---|
-| `force-app/main/default/classes/` | Four REST resources and their services, selector, constants, test data factory and tests |
+| `force-app/main/default/classes/` | Five REST resources and their services, selector, constants, test data factory and tests |
 | `force-app/main/default/objects/` | `SalesCopilot_Request__c` (one record per request) and five custom fields on standard objects |
 | `force-app/main/default/uiBundles/RevenueConfigurator/` | The built configurator (UI Bundle), served inside Salesforce |
 | `force-app/main/default/contextDefinitions/`, `expressionSetDefinition/` | Pricing: the context definition and the pricing procedure |
@@ -22,6 +22,7 @@ before the request arrives.
 | `scripts/apex/` | Seed fictional customers; reset one demo request |
 | `examples/` | Sample request bodies, including one that must be rejected |
 | `demo/` | The demo scenarios, one file each: prompt, expected numbers, what to say |
+| [`TESTING.md`](TESTING.md) | Step-by-step manual for testing everything against the PoC org, including Slack |
 
 ## Endpoints
 
@@ -31,10 +32,43 @@ All under `/services/apexrest/salescopilot/`. Errors come back with a non-200 st
 
 | Endpoint | Role | Does |
 |---|---|---|
-| `POST build` | Product manager | Contract in, configuration out: products, prices, tiers, bundle. Returns `{ requestId, status, artifactUrl }` |
+| `POST check` | Anyone, before `build` | Same body as `build`, builds nothing: is the product already sold (`exists`), are there look-alikes (`similar`), or nothing (`new`) |
+| `POST build` | Product manager | Contract in, configuration out: products, prices, tiers, bundle. Returns `{ requestId, status, artifactUrl, recordUrl }` |
 | `GET catalog?audience=Business` | Sales rep | What can be sold to a segment: price, billing, volume tiers, bundle components, the discount limit |
 | `GET customer?name=Acme` | Sales rep | A customer's segment, current services (assets, contract end) and open quotes |
 | `POST quote` | Sales rep | A priced Revenue Cloud quote for a customer, with approval when the discount is too high |
+
+### `check`
+
+Send the body you are about to `build`. Nothing is written; the answer is always HTTP 200 unless the JSON
+cannot be parsed (400):
+
+```json
+{
+  "requestId": "chk_backup_similar",
+  "status": "similar",
+  "problems": null,
+  "matches": [
+    {
+      "forProduct": "Backup w chmurze", "match": "similar", "sharedWords": ["backup"],
+      "productId": "01t...", "name": "Cloud Backup", "type": "Simple", "audience": "Business",
+      "billing": "monthly", "listPrice": 8,
+      "artifactUrl": "https://...app/c__RevenueConfigurator?requestId=...",
+      "recordUrl": "https://...my.salesforce.com/lightning/r/Product2/01t.../view"
+    }
+  ]
+}
+```
+
+- `status`: `exists` if any requested name (a new product or the bundle) is an active catalog product, ignoring
+  case: `build` would answer 409. `similar` if names only share a significant word (3+ letters, not a filler such
+  as "pro", "bundle", "service", "pakiet"). `new` otherwise.
+- `problems`: what `build` would reject with 400 (missing price, bad tiers…), or `null`.
+- `matches`: exact matches first. `recordUrl` opens the product in Lightning; `artifactUrl` is set when Sales
+  Copilot built it.
+
+The word match is deliberately simple: it catches "Backup w chmurze" vs "Cloud Backup" but not a translation such
+as "Kopia zapasowa". An LLM caller can read `GET catalog` and judge those itself.
 
 ### `build`
 
@@ -50,7 +84,8 @@ v2 fields `sellingModel`, `pricing.appliesTo` and `bundle`). A build creates, in
 | `PriceAdjustmentTier` | tier × discounted product | On the shared "Standard Price Adjustment Tier" schedule, Range bands with no gaps |
 | `ProductComponentGroup`, `ProductRelatedComponent` | bundle | "Included" and "Optional" groups; required components are default and fixed |
 
-`artifactUrl` opens the configurator with `?requestId=`.
+`artifactUrl` opens the configurator with `?requestId=`. `recordUrl` opens the bundle, or the first new product, in
+Lightning; it is stored on `SalesCopilot_Request__c.Record_Url__c` and a repeated `requestId` returns it too.
 
 **The build knows the catalog.** A new product may not take the name of an active catalog product (case does
 not matter), or the catalog would hold two products a rep cannot tell apart. If name clashes are the only
@@ -62,7 +97,7 @@ problem, nothing is built and the answer is HTTP 409:
   "status": "exists",
   "error": "\"Cloud Analytics licence\" already exists in the catalog (productId 01t..., 40.00 USD); send its productId to reuse it, or give the new product another name",
   "existingProducts": [
-    { "productId": "01t...", "name": "Cloud Analytics licence", "unitPrice": 40, "billing": "one-time", "artifactUrl": "https://..." }
+    { "productId": "01t...", "name": "Cloud Analytics licence", "unitPrice": 40, "billing": "one-time", "artifactUrl": "https://...", "recordUrl": "https://..." }
   ]
 }
 ```
@@ -124,7 +159,8 @@ and bundle structure through the Salesforce GraphQL API and shows:
 
 - a flat price, a volume table with a quantity slider, or a bundle with optional components;
 - monthly and one-time totals separately;
-- a "Create quote" button that prices the selection in Revenue Cloud.
+- a "Create quote" button that prices the selection in Revenue Cloud;
+- an "Open in Salesforce" button that opens the product or bundle record, for builds made after it was added.
 
 With `?quoteId=` it shows a customer's proposal page instead: the quote's lines as Revenue Cloud priced them
 (tier and manual discount included), its status ("Awaiting manager approval" when `Needs Review`) and the blocks
