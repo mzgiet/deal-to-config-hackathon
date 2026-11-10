@@ -1,0 +1,21 @@
+{
+  "account": "Acme Logistics",
+  "lines": [{ "product": "Cloud Backup", "quantity": 120 }],
+  "presentation": {
+    "headline": "Cloud Backup for every Acme employee, at the 10% volume rate",
+    "customer": { "name": "Acme Logistics", "quantity": 120 },
+    "sections": [
+      "savings",
+      {
+        "type": "highlights",
+        "title": "Why it fits Acme",
+        "items": [
+          "All 120 employees backed up, as Acme asked",
+          "The 10% volume rate already applies from 50 seats",
+          "Cloud Analytics renewal is due soon: one conversation for both"
+        ]
+      },
+      "offer"
+    ]
+  }
+}

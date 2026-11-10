@@ -10,6 +10,8 @@ import OfferPage from './components/OfferPage';
 import RequestPage from './components/RequestPage';
 import { useProducts } from './hooks/useProducts';
 import { getRequestIdFromUrl } from './hooks/useRequestOffer';
+import QuotePage from './components/QuotePage';
+import { getQuoteIdFromUrl } from './hooks/useCustomerQuote';
 
 const pageVariants = {
   initial: { opacity: 0, x: 40 },
@@ -18,6 +20,8 @@ const pageVariants = {
 };
 
 export default function App() {
+  const quoteId = getQuoteIdFromUrl();
+  if (quoteId) return <QuotePage quoteId={quoteId} />;
   const requestId = getRequestIdFromUrl();
   return requestId ? <RequestPage requestId={requestId} /> : <CatalogApp />;
 }

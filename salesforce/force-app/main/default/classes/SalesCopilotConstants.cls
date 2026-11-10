@@ -24,6 +24,28 @@ public with sharing class SalesCopilotConstants {
     public static final String SELLING_MODEL_EVERGREEN = 'evergreen';
     public static final String DEFAULT_SELLING_MODEL = SELLING_MODEL_ONE_TIME;
 
+    // ─── Presentation (page the agent composes) ──────────────────────────────
+
+    public static final String SECTION_OFFER = 'offer';
+    public static final String SECTION_SAVINGS = 'savings';
+    public static final String SECTION_HIGHLIGHTS = 'highlights';
+    public static final String SECTION_ASSUMPTIONS = 'assumptions';
+    public static final String SECTION_REQUEST = 'request';
+    public static final Set<String> SECTION_TYPES = new Set<String>{
+        SECTION_OFFER,
+        SECTION_SAVINGS,
+        SECTION_HIGHLIGHTS,
+        SECTION_ASSUMPTIONS,
+        SECTION_REQUEST
+    };
+    public static final Set<String> QUOTE_SECTION_TYPES = new Set<String>{
+        SECTION_OFFER,
+        SECTION_SAVINGS,
+        SECTION_HIGHLIGHTS
+    };
+    public static final Integer HEADLINE_MAX_LENGTH = 160;
+    public static final Integer HIGHLIGHTS_MAX_ITEMS = 5;
+
     // ─── Audience ────────────────────────────────────────────────────────────
 
     public static final String AUDIENCE_BUSINESS = 'Business';
@@ -55,6 +77,7 @@ public with sharing class SalesCopilotConstants {
     public static final String GROUP_INCLUDED = 'Included';
     public static final String GROUP_OPTIONAL = 'Optional';
     public static final String REQUEST_ID_PARAM = 'requestId';
+    public static final String QUOTE_ID_PARAM = 'quoteId';
 
     // ─── Selling ─────────────────────────────────────────────────────────────
 

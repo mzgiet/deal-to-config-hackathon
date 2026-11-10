@@ -13,6 +13,48 @@ public with sharing class SalesCopilotRequestWrapper {
     public String bundleName;
     public Decimal bundleDiscountPct;
     public List<BundleComponent> bundleComponents = new List<BundleComponent>();
+    public Presentation presentation;
+
+    /** The page the agent composed for this offer; stored as JSON and rendered by the configurator. */
+    public class Presentation {
+        public String headline;
+        public String customerName;
+        public Integer customerQuantity;
+        public List<Section> sections = new List<Section>();
+
+        // The offer section carries the prices and the quote, so a composed page can reorder it but not drop it.
+        public Set<String> validate(Set<String> allowedTypes, List<String> errors) {
+            if (String.isNotBlank(headline) && headline.length() > SalesCopilotConstants.HEADLINE_MAX_LENGTH) {
+                errors.add('presentation.headline must be at most ' + SalesCopilotConstants.HEADLINE_MAX_LENGTH + ' characters');
+            }
+            final Set<String> seen = new Set<String>();
+            for (Section section : sections) {
+                if (!allowedTypes.contains(section.type)) {
+                    errors.add('presentation section "' + section.type + '" is not one of ' + allowedTypes);
+                    continue;
+                }
+                if (!seen.add(section.type)) {
+                    errors.add('presentation section "' + section.type + '" appears twice');
+                }
+                if (
+                    section.type == SalesCopilotConstants.SECTION_HIGHLIGHTS &&
+                    (section.items.isEmpty() || section.items.size() > SalesCopilotConstants.HIGHLIGHTS_MAX_ITEMS)
+                ) {
+                    errors.add('presentation highlights need 1 to ' + SalesCopilotConstants.HIGHLIGHTS_MAX_ITEMS + ' items');
+                }
+            }
+            if (!sections.isEmpty() && !seen.contains(SalesCopilotConstants.SECTION_OFFER)) {
+                errors.add('presentation.sections must include "offer", the priced products and the quote');
+            }
+            return seen;
+        }
+    }
+
+    public class Section {
+        public String type;
+        public String title;
+        public List<String> items = new List<String>();
+    }
 
     public class ProductLine {
         public Id productId;
@@ -82,6 +124,7 @@ public with sharing class SalesCopilotRequestWrapper {
         for (Object item : childList(bundle, 'components')) {
             wrapper.bundleComponents.add(toBundleComponent(toMap(item, 'Each bundle component')));
         }
+        wrapper.presentation = parsePresentation(root.get('presentation'));
 
         if (String.isBlank(wrapper.requestId)) {
             throw new InvalidRequestException('requestId is missing');
@@ -124,6 +167,44 @@ public with sharing class SalesCopilotRequestWrapper {
         tier.fromQuantity = fromQuantity?.intValue();
         tier.discountPct = toDecimal(source.get('discountPct'), 'discountPct');
         return tier;
+    }
+
+    public static Presentation parsePresentation(Object value) {
+        if (value == null) {
+            return null;
+        }
+        final Map<String, Object> source = toMap(value, 'presentation');
+        final Presentation presentation = new Presentation();
+        presentation.headline = text(source, 'headline');
+        final Map<String, Object> customer = childMap(source, 'customer');
+        presentation.customerName = text(customer, 'name');
+        final Decimal quantity = toDecimal(customer.get('quantity'), 'presentation.customer.quantity');
+        if (quantity != null && (quantity < 1 || quantity != quantity.round(System.RoundingMode.DOWN))) {
+            throw new InvalidRequestException('presentation.customer.quantity must be a whole number of 1 or more');
+        }
+        presentation.customerQuantity = quantity?.intValue();
+        for (Object item : childList(source, 'sections')) {
+            presentation.sections.add(toSection(item));
+        }
+        return presentation;
+    }
+
+    /** A section is either its type alone ("savings") or an object with type, title and items. */
+    private static Section toSection(Object item) {
+        final Section section = new Section();
+        if (item instanceof String) {
+            section.type = ((String) item).trim().toLowerCase();
+            return section;
+        }
+        final Map<String, Object> source = toMap(item, 'Each presentation section');
+        section.type = text(source, 'type')?.toLowerCase();
+        section.title = text(source, 'title');
+        for (Object value : childList(source, 'items')) {
+            if (value != null && String.isNotBlank(String.valueOf(value))) {
+                section.items.add(String.valueOf(value).trim());
+            }
+        }
+        return section;
     }
 
     private static Map<String, Object> toMap(Object value, String label) {
@@ -194,6 +275,7 @@ public with sharing class SalesCopilotRequestWrapper {
         final List<String> errors = new List<String>();
         validateProducts(orgCurrency, errors);
         validatePricing(errors);
+        validatePresentation(errors);
         if (!SalesCopilotConstants.AUDIENCE_BY_AVAILABILITY.containsKey(getAvailabilityKey())) {
             errors.add('availability must be B2B, B2C or both, got "' + availability + '"');
         }
@@ -284,6 +366,21 @@ public with sharing class SalesCopilotRequestWrapper {
         }
         if (String.isNotBlank(appliesTo) && getDiscountedProducts().isEmpty()) {
             errors.add('pricing.appliesTo names "' + appliesTo + '", which is not one of the products');
+        }
+    }
+
+    private void validatePresentation(List<String> errors) {
+        if (presentation == null) {
+            return;
+        }
+        final Set<String> sectionTypes = presentation.validate(SalesCopilotConstants.SECTION_TYPES, errors);
+        if (sectionTypes.contains(SalesCopilotConstants.SECTION_SAVINGS)) {
+            if (pricingType != SalesCopilotConstants.PRICING_VOLUME_TIER) {
+                errors.add('presentation section "savings" needs volume-tier pricing');
+            }
+            if (presentation.customerQuantity == null) {
+                errors.add('presentation section "savings" needs presentation.customer.quantity');
+            }
         }
     }
 

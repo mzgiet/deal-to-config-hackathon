@@ -17,6 +17,9 @@ import type {
   Audience,
   Billing,
   ConfigurationRequest,
+  CustomerQuote,
+  Presentation,
+  PresentationSectionType,
   RequestBundle,
   RequestOffer,
   RequestPricingType,
@@ -666,6 +669,7 @@ const requestOfferQuery = (requestId: string) => `{
         Summary__c { value }
         Raw_Request__c { value }
         Assumptions__c { value }
+        Presentation__c { value }
         CreatedDate { value }
       }}
     }
@@ -734,6 +738,7 @@ interface RequestOfferData {
       Summary__c: { value: string | null };
       Raw_Request__c: { value: string | null };
       Assumptions__c: { value: string | null };
+      Presentation__c: { value: string | null };
       CreatedDate: { value: string };
     }}[] };
     Product2: { edges: { node: {
@@ -806,6 +811,25 @@ function toAudience(value: string | null): Audience {
   return AUDIENCES.find((a) => a === value) ?? 'Both';
 }
 
+const SECTION_TYPES: PresentationSectionType[] = ['offer', 'savings', 'highlights', 'assumptions', 'request'];
+
+/** A page that cannot be read falls back to the default layout rather than failing the offer. */
+function parsePresentation(value: string | null): Presentation | null {
+  if (!value) return null;
+  try {
+    const raw = JSON.parse(value) as Partial<Presentation>;
+    const sections = (raw.sections ?? []).filter((s) => SECTION_TYPES.includes(s.type));
+    return {
+      headline: raw.headline || undefined,
+      customerName: raw.customerName || undefined,
+      customerQuantity: raw.customerQuantity || undefined,
+      sections: sections.map((s) => ({ type: s.type, title: s.title || undefined, items: s.items ?? [] })),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export interface CreatedQuote {
   quoteId: string;
   quoteUrl: string;
@@ -827,6 +851,128 @@ export async function createSFQuote(requestId: string, addOns: string[]): Promis
     throw new Error(json?.error ?? `Quote request failed (${res.status})`);
   }
   return { quoteId: json.quoteId, quoteUrl: json.quoteUrl, grandTotal: json.grandTotal ?? null };
+}
+
+// ── Sales Copilot customer quote (?quoteId=) ─────────────────────────────────
+
+export function isValidSalesforceId(value: string): boolean {
+  return SF_ID_PATTERN.test(value);
+}
+
+const customerQuoteQuery = (quoteId: string) => `{
+  uiapi { query {
+    Quote(where: { Id: { eq: "${quoteId}" } }, first: 1) {
+      edges { node {
+        Id
+        Name { value }
+        Status { value }
+        GrandTotal { value }
+        CreatedDate { value }
+        Presentation__c { value }
+        Account { Name { value } }
+        QuoteLineItems(first: 50) {
+          edges { node {
+            Product2Id { value }
+            Product2 { Name { value } }
+            Quantity { value }
+            ListPrice { value }
+            TotalPrice { value }
+            Line_Discount_Pct__c { value }
+            PricebookEntry { ProductSellingModel { SellingModelType { value } } }
+          }}
+        }
+      }}
+    }
+  }}
+}`;
+
+const productTiersQuery = (productIds: string[]) => `{
+  uiapi { query {
+    PriceAdjustmentTier(
+      where: { Product2Id: { in: [${productIds.map((id) => `"${id}"`).join(', ')}] } }
+      first: 200
+      orderBy: { LowerBound: { order: ASC } }
+    ) {
+      edges { node {
+        Product2Id { value }
+        TierValue { value }
+        LowerBound { value }
+        UpperBound { value }
+      }}
+    }
+  }}
+}`;
+
+interface CustomerQuoteData {
+  uiapi: { query: { Quote: { edges: { node: {
+    Id: string;
+    Name: { value: string };
+    Status: { value: string | null };
+    GrandTotal: { value: number | null };
+    CreatedDate: { value: string };
+    Presentation__c: { value: string | null };
+    Account: { Name: { value: string } } | null;
+    QuoteLineItems: { edges: { node: {
+      Product2Id: { value: string };
+      Product2: { Name: { value: string } } | null;
+      Quantity: { value: number };
+      ListPrice: { value: number | null };
+      TotalPrice: { value: number | null };
+      Line_Discount_Pct__c: { value: number | null };
+      PricebookEntry: { ProductSellingModel: { SellingModelType: { value: string } } | null } | null;
+    }}[] };
+  }}[] } } };
+}
+
+type ProductTiersData = {
+  uiapi: { query: Pick<RequestOfferData['uiapi']['query'], 'PriceAdjustmentTier'> };
+};
+
+/** Returns null when the quote does not exist or is not visible to the user. */
+export async function fetchSFCustomerQuote(quoteId: string): Promise<CustomerQuote | null> {
+  if (!isValidSalesforceId(quoteId)) {
+    throw new Error(`"${quoteId}" is not a valid quote id.`);
+  }
+  const data = await gql<CustomerQuoteData>(customerQuoteQuery(quoteId));
+  const node = data.uiapi.query.Quote.edges[0]?.node;
+  if (!node) return null;
+
+  const lineNodes = node.QuoteLineItems.edges.map((e) => e.node);
+  const productIds = [...new Set(lineNodes.map((l) => l.Product2Id.value))].filter((id) => SF_ID_PATTERN.test(id));
+  const tierEdges = productIds.length
+    ? (await gql<ProductTiersData>(productTiersQuery(productIds))).uiapi.query.PriceAdjustmentTier.edges
+    : [];
+  const tiersByProductId = new Map<string, VolumeTier[]>();
+  for (const { node: tier } of tierEdges) {
+    const tiers = tiersByProductId.get(tier.Product2Id.value) ?? [];
+    tiers.push({
+      fromQuantity: tier.LowerBound.value,
+      toQuantity: tier.UpperBound.value,
+      discountPct: tier.TierValue.value,
+    });
+    tiersByProductId.set(tier.Product2Id.value, tiers);
+  }
+
+  return {
+    id: node.Id,
+    name: node.Name.value,
+    status: node.Status.value ?? 'Draft',
+    grandTotal: node.GrandTotal.value ?? 0,
+    accountName: node.Account?.Name.value ?? null,
+    createdDate: node.CreatedDate.value,
+    presentation: parsePresentation(node.Presentation__c.value),
+    lines: lineNodes.map((line) => ({
+      productId: line.Product2Id.value,
+      productName: line.Product2?.Name.value ?? '',
+      quantity: line.Quantity.value,
+      listPrice: line.ListPrice.value ?? 0,
+      total: line.TotalPrice.value ?? 0,
+      discountPct: line.Line_Discount_Pct__c.value,
+      billing:
+        line.PricebookEntry?.ProductSellingModel?.SellingModelType.value === 'Evergreen' ? 'monthly' : 'one-time',
+      tiers: tiersByProductId.get(line.Product2Id.value) ?? [],
+    })),
+  };
 }
 
 /** Returns null when no request with that id exists. */
@@ -853,6 +999,7 @@ export async function fetchSFRequestOffer(requestId: string): Promise<RequestOff
       .map((a) => a.trim())
       .filter(Boolean),
     createdDate: node.CreatedDate.value,
+    presentation: parsePresentation(node.Presentation__c.value),
   };
 
   const requestProductIds = new Set(q.Product2.edges.map(({ node }) => node.Id));

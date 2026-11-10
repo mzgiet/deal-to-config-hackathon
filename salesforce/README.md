@@ -13,7 +13,7 @@ before the request arrives.
 | Path | What |
 |---|---|
 | `force-app/main/default/classes/` | Four REST resources and their services, selector, constants, test data factory and tests |
-| `force-app/main/default/objects/` | `SalesCopilot_Request__c` (one record per request) and four custom fields on standard objects |
+| `force-app/main/default/objects/` | `SalesCopilot_Request__c` (one record per request) and five custom fields on standard objects |
 | `force-app/main/default/uiBundles/RevenueConfigurator/` | The built configurator (UI Bundle), served inside Salesforce |
 | `force-app/main/default/contextDefinitions/`, `expressionSetDefinition/` | Pricing: the context definition and the pricing procedure |
 | `force-app/main/default/permissionsets/` | `SalesCopilotAccess` (endpoints and fields), `RevenueConfiguratorAccess` (the app) |
@@ -21,6 +21,7 @@ before the request arrives.
 | `skills/` | Two agent skills that drive the endpoints from a chat: one per role |
 | `scripts/apex/` | Seed fictional customers; reset one demo request |
 | `examples/` | Sample request bodies, including one that must be rejected |
+| `demo/` | The demo scenarios, one file each: prompt, expected numbers, what to say |
 
 ## Endpoints
 
@@ -85,6 +86,35 @@ marks reused components "already in the catalog". `GET catalog` returns `product
 - Adds a bundle's required components itself; optional ones come from `addOns`.
 - A discount above 10% sets the quote to `Needs Review` and returns the reason.
 - The configurator calls the same endpoint with `{ "requestId", "addOns" }` for its "Create quote" button.
+- With `presentation` (below) it also returns `pageUrl`: the customer's proposal page for this quote.
+
+### `presentation`: the page the agent composes
+
+Both `build` and a customer `quote` accept an optional top-level `presentation`. The configurator ships a fixed set
+of blocks; the caller picks which ones to show, in which order, and writes their text for this customer:
+
+```json
+"presentation": {
+  "headline": "Cloud Backup for every Acme employee, at the 10% volume rate",
+  "customer": { "name": "Acme Logistics", "quantity": 120 },
+  "sections": [
+    "savings",
+    { "type": "highlights", "title": "Why it fits Acme", "items": ["All 120 employees covered", "…"] },
+    "offer"
+  ]
+}
+```
+
+| Block | Shows | On |
+|---|---|---|
+| `offer` | The priced products (build) or the quote lines (quote). Required whenever `sections` is sent | both |
+| `savings` | Total, saving vs list per month and per year, how far the next tier is | build (volume-tier, needs `customer.quantity`), quote |
+| `highlights` | 1–5 reasons the offer fits this customer, optional `title` | both |
+| `assumptions`, `request` | The approved assumptions; the words of the request | build |
+
+Each block at most once, `headline` up to 160 characters; anything else is a 400 and nothing is created. It is
+stored as JSON on `SalesCopilot_Request__c.Presentation__c` or `Quote.Presentation__c`. Without `presentation`
+both pages keep their default layout, so a caller that does not send it changes nothing.
 
 ## The configurator
 
@@ -96,7 +126,11 @@ and bundle structure through the Salesforce GraphQL API and shows:
 - monthly and one-time totals separately;
 - a "Create quote" button that prices the selection in Revenue Cloud.
 
-Without `requestId` it opens an earlier catalog browser that shares the same code.
+With `?quoteId=` it shows a customer's proposal page instead: the quote's lines as Revenue Cloud priced them
+(tier and manual discount included), its status ("Awaiting manager approval" when `Needs Review`) and the blocks
+from `Quote.Presentation__c`.
+
+Without either parameter it opens an earlier catalog browser that shares the same code.
 
 ## Skills
 

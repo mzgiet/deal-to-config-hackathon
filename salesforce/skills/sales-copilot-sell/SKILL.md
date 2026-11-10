@@ -2,7 +2,7 @@
 name: sales-copilot-sell
 description: "Sales-rep channel of the Sales Copilot PoC — turns a request to sell to a named customer (e.g. 'Acme wants 80 more Cloud Analytics licences, give them 5%') into a Revenue Cloud quote: reads the customer's current services and open quotes, proposes lines from the existing catalog, checks the discount threshold, gets approval and posts to /services/apexrest/salescopilot/quote on the PoC org. TRIGGER when: the user names a customer and wants an offer, quote, upsell, renewal or discount for them; asks what a customer already has or what can be sold to them; or asks to run the sales-rep part of the Sales Copilot demo. DO NOT TRIGGER when: the user describes a new product or price to set up (sales-copilot-build), loads or edits a catalog (revenue-cloud-product-config, revenue-cloud-price-config), or works on the endpoints' Apex or the configurator's React code."
 metadata:
-  version: "0.1"
+  version: "0.2"
   domains: ["Salesforce", "Revenue Cloud", "Sales Copilot PoC"]
 ---
 
@@ -66,6 +66,47 @@ yourself from the catalog so the user sees the number before anything is written
 - **Bundles** — required components are always added; optional ones go in `addOns` by component name.
 - **Segment** — only offer products from the step 2 list. A product sold to the other segment is a 400.
 - Mixed billing (one-time + monthly) — show the one-time total and the monthly total separately.
+- **Not in the catalog** — the customer asks for something no catalog product covers. Quote nothing for it; say
+  it is not sellable yet and hand it to the product manager as a ready request, written so it can be pasted
+  into `sales-copilot-build` (product, price if the user gave one, audience = the customer's segment) plus the
+  deal it comes from:
+
+  ```text
+  Request for the product manager — Acme Logistics (Business, 120 employees) wants cloud backup for all staff.
+  Not in the catalog. Suggested offer: Cloud Backup, per user per month, business customers.
+  Price and volume discount: to be set by the product manager.
+  ```
+
+  Then stop and say the quote can follow once the offer is in the catalog. Offer what is sellable now, if
+  anything fits, as a separate option.
+
+### 3a. Compose the customer page (`presentation`)
+
+Every quote gets a proposal page for the customer, and the agent decides what it leads with from what the
+conversation and step 1 said about this customer. Send it as `presentation` with the quote:
+
+```json
+"presentation": {
+  "headline": "Cloud Backup for every Acme employee, at the 10% volume rate",
+  "customer": { "name": "Acme Logistics", "quantity": 120 },
+  "sections": [
+    "savings",
+    { "type": "highlights", "title": "Why it fits Acme", "items": ["All 120 employees covered", "Cloud Analytics contract ends in 80 days: one conversation for both"] },
+    "offer"
+  ]
+}
+```
+
+| Section | Shows | Lead with it when |
+|---|---|---|
+| `savings` | Total per billing, saving vs list per month and per year, the tier and extra discount per line, and how many more units reach the next tier | The customer buys volume or negotiates on price |
+| `highlights` | 1–5 short reasons this offer fits **this** customer, optional `title` | The context gives reasons: renewal coming up, existing services it complements, headcount covered. Only facts from step 1 or the conversation |
+| `offer` | The quote lines with unit, list and total price; a "needs manager approval" note when the quote is `Needs Review`. **Required** | Always present; first when the customer just wants the numbers |
+
+- `customer.name` is the account name; `customer.quantity` the headcount or seats the offer covers, if known.
+- `headline` ≤ 160 characters, in the customer's language (English for the demo).
+- A new quote after a negotiation (another discount) gets its own page: compose it again for the new situation,
+  e.g. lead with `savings` after the customer pushed on price.
 
 ### 4. Approve
 
@@ -75,16 +116,20 @@ Show a compact proposal in the user's language:
 |---|---|---|---|---|---|---|---|
 
 followed by the customer context that shaped it (current services, contract end, open quotes), whether approval
-is needed and why, and any assumptions. Ask with `AskQuestion`: create the quote / change something / cancel.
-Post nothing without an explicit "create" in this turn.
+is needed and why, any assumptions, and the page outline (headline, section order and why). Ask with
+`AskQuestion`: create the quote / change something / cancel. Post nothing without an explicit "create" in this
+turn.
 
 ### 5. Quote
 
 ```bash
 sf api request rest 'services/apexrest/salescopilot/quote' --method POST \
   --header 'Content-Type: application/json' -o poc-salescopilot \
-  --body '{"account":"<accountId>","lines":[{"product":"Cloud Analytics licence","quantity":120,"discountPct":5}]}'
+  --body @/tmp/sales-copilot/quote_<account_slug>_<yyMMddHHmm>.json
 ```
+
+Body: `{"account":"<accountId>","lines":[{"product":"Cloud Analytics licence","quantity":120,"discountPct":5}],"presentation":{…}}`.
+Write it to the file first; the presentation is too long for an inline `--body`.
 
 | Field | Rule |
 |---|---|
@@ -93,9 +138,11 @@ sf api request rest 'services/apexrest/salescopilot/quote' --method POST \
 | `lines[].quantity` | Whole number ≥ 1; default 1 |
 | `lines[].discountPct` | 0 ≤ value < 100; omit for none |
 | `lines[].addOns` | Bundles only: names of optional components |
+| `presentation` | Step 3a. Sections `savings`, `highlights`, `offer`, each once, `offer` required; an invalid one is a 400 and nothing is created |
 
-- HTTP 200 → `quoteId`, `quoteUrl`, `quoteStatus` (`Draft` / `Needs Review`), `grandTotal`, `opportunityId`,
-  `approvalRequired`, `approvalReasons[]`. Every quote gets a new Opportunity on the account.
+- HTTP 200 → `quoteId`, `quoteUrl`, `pageUrl` (the customer page, with `presentation`), `quoteStatus` (`Draft` /
+  `Needs Review`), `grandTotal`, `opportunityId`, `approvalRequired`, `approvalReasons[]`. Every quote gets a new
+  Opportunity on the account.
 - HTTP 400 → `error` names the rule broken (unknown product, wrong segment, bad add-on). Fix the line and go back
   to step 4 — nothing was created.
 - HTTP 500 → Revenue Cloud rejected the quote and everything was rolled back. Show the error and stop.
@@ -104,5 +151,6 @@ Compare `grandTotal` with the total you showed in step 4. A difference means the
 the catalog (stale decision tables, a tier you misread) — say so instead of glossing over it; refreshing pricing
 is `sf api request rest 'services/data/v66.0/connect/core-pricing/sync/syncData' -o poc-salescopilot`.
 
-Report: the quote link, status, total, the approval reason if any, and one line on what to do next (send it,
-or wait for the manager).
+Open `pageUrl` in the Cursor browser (`cursor-ide-browser` → `browser_navigate`; the session must be logged in to
+`poc-salescopilot`), take a screenshot and show it. Report: the customer page, the quote link, status, total, the
+approval reason if any, and one line on what to do next (send it, or wait for the manager).

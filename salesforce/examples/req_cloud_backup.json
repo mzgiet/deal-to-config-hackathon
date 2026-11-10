@@ -1,0 +1,37 @@
+{
+  "requestId": "req_cloud_backup_001",
+  "rawRequest": "Set up the offer from the rep's request: Cloud Backup at $8 per user per month, 10% off from 50 users, business customers only.",
+  "source": { "channel": "cursor" },
+  "extracted": {
+    "products": [{ "name": "Cloud Backup", "basePrice": 8, "currency": "USD", "sellingModel": "evergreen" }],
+    "pricing": {
+      "type": "volume-tier",
+      "tiers": [{ "from": 50, "discountPct": 10 }]
+    },
+    "availability": "B2B"
+  },
+  "summary": "Cloud Backup at $8 per user per month with 10% off from 50 users, for business customers",
+  "assumptions": [
+    "Price is per user per month",
+    "\"From 50 users\" means the 10% rate starts at the 50th user and applies to every user"
+  ],
+  "presentation": {
+    "headline": "Cloud Backup for Acme: all 120 employees at the 10% volume rate",
+    "customer": { "name": "Acme", "quantity": 120 },
+    "sections": [
+      "savings",
+      {
+        "type": "highlights",
+        "title": "Why it fits Acme",
+        "items": [
+          "Covers every employee, as Acme asked",
+          "The volume rate already applies from 50 seats",
+          "One monthly price per user, no set-up fee"
+        ]
+      },
+      "offer",
+      "assumptions"
+    ]
+  },
+  "target": "revenue-cloud"
+}

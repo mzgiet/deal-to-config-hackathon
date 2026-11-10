@@ -2,7 +2,7 @@
 name: sales-copilot-build
 description: "Cursor channel of the Sales Copilot PoC — turns a plain-language offer request from the chat (product, unit price, volume discounts, B2B/B2C) into a Sales Copilot request, shows it for approval, posts it to /services/apexrest/salescopilot/build on the PoC org, refreshes pricing and opens the configurator link. TRIGGER when: the user describes an offer or price to set up in Revenue Cloud in their own words (e.g. 'set up Cloud Analytics at $40 per user, 10% off from 100 users, business only'), asks to 'build it', 'configure it via Sales Copilot' or to run the Cursor channel of the PoC. DO NOT TRIGGER when: loading or editing a catalog from CSV or by hand (revenue-cloud-product-config), pricing an existing catalog record by record (revenue-cloud-price-config), product rules (revenue-cloud-product-rules), or working on the endpoint's Apex or the configurator's React code."
 metadata:
-  version: "0.4"
+  version: "0.5"
   domains: ["Salesforce", "Revenue Cloud", "Sales Copilot PoC"]
 ---
 
@@ -115,11 +115,47 @@ Bundles (`pricing.type: "bundle"`) add `extracted.bundle`:
 
 Ask a short question instead of inventing a missing unit price or audience.
 
+#### Compose the page (`presentation`)
+
+The configurator link is not a fixed template: the agent decides what the page leads with, from what the
+conversation said about the customer and what they care about. Add a top-level `presentation`:
+
+```json
+"presentation": {
+  "headline": "Cloud Backup for Acme: 120 seats at the 10% volume rate",
+  "customer": { "name": "Acme", "quantity": 120 },
+  "sections": [
+    "savings",
+    { "type": "highlights", "title": "Why it fits Acme", "items": ["Every employee backed up from day one", "The 10% rate already applies at 50 seats"] },
+    "offer",
+    "assumptions"
+  ]
+}
+```
+
+Sections render in the order given, each at most once:
+
+| Section | Shows | Use when |
+|---|---|---|
+| `offer` | The priced product cards (tier table and quantity slider, bundle with add-on toggles and the quote button). **Required** whenever `sections` is sent | Always |
+| `savings` | The customer's quantity priced: total, saving vs list (per month and per year) and how many more units reach the next tier | `volume-tier` with `customer.quantity` — the customer is price- or volume-driven |
+| `highlights` | 1–5 short selling points, optional `title` | The conversation gave reasons the offer fits this customer; write them from what was said, never invent facts |
+| `assumptions` | The approved assumptions | Interpretations the rep should see before quoting |
+| `request` | The user's words, verbatim | The audience should see what was asked |
+
+- `customer.name` and `customer.quantity` (whole number ≥ 1) come from the conversation; the slider starts at
+  the quantity. Omit what was not said.
+- `headline` ≤ 160 characters, in the language of the audience of the page (English for the demo).
+- Leave `presentation` out when there is no customer context; the page then uses the default layout (request,
+  assumptions, offer).
+- The ordering is the point: a customer that buys in volume leads with `savings`; a bundle for a new segment
+  leads with `highlights`; a sceptical buyer gets `assumptions` early.
+
 ### 2. Approve
 
 Show the user a compact summary — product, unit price and billing (one-time / monthly), a tier table with the
 resulting unit prices or the bundle's components (marking which ones are reused from the catalog and which are
-new), audience, assumptions — and the JSON. Ask with `AskQuestion`: build it / change something / cancel. Post nothing without
+new), audience, assumptions, the page outline (headline and section order, with one line on why) — and the JSON. Ask with `AskQuestion`: build it / change something / cancel. Post nothing without
 an explicit "build it" in this turn.
 
 ### 3. Build

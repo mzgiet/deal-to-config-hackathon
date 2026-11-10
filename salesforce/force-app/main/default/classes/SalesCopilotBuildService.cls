@@ -246,6 +246,7 @@ public with sharing class SalesCopilotBuildService {
             Summary__c = request.summary,
             Raw_Request__c = request.rawRequest,
             Assumptions__c = String.join(request.assumptions, '\n'),
+            Presentation__c = request.presentation == null ? null : JSON.serialize(request.presentation, true),
             Payload__c = body.left(SalesCopilotConstants.PAYLOAD_MAX_LENGTH)
         );
     }

@@ -7,11 +7,15 @@ import {
   FileText,
   Home,
   Info,
+  Lightbulb,
   Loader2,
   MessageSquareQuote,
   Package,
+  PiggyBank,
   Sparkles,
+  TrendingUp,
   TriangleAlert,
+  Users,
 } from 'lucide-react';
 import { useRequestOffer } from '../hooks/useRequestOffer';
 import { BRAND } from '../theme';
@@ -21,8 +25,10 @@ import type {
   Audience,
   Billing,
   ConfigurationRequest,
+  PresentationSection,
   RequestBundle,
   RequestBundleComponent,
+  RequestOffer,
   RequestProduct,
 } from '../types';
 
@@ -105,44 +111,169 @@ function RequestNav({
 }
 
 // ── Request summary ───────────────────────────────────────────────────────────
-function RequestSummary({ request }: { request: ConfigurationRequest }) {
+function RequestHeader({ request }: { request: ConfigurationRequest }) {
+  const presentation = request.presentation;
   return (
-    <section className="space-y-4">
-      <div className="flex items-center gap-2 text-syn-accent text-xs font-semibold tracking-[0.15em] uppercase">
-        <Sparkles size={13} />
-        Configured from a request
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 text-syn-accent text-xs font-semibold tracking-[0.15em] uppercase">
+          <Sparkles size={13} />
+          {presentation ? 'Composed for this deal' : 'Configured from a request'}
+        </div>
+        {presentation?.customerName && (
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-syn-text bg-syn-gradient-subtle border border-syn-border-bright px-2.5 py-1 rounded-full">
+            <Users size={12} />
+            Prepared for {presentation.customerName}
+            {presentation.customerQuantity && ` · ${presentation.customerQuantity.toLocaleString()} users`}
+          </span>
+        )}
       </div>
       <h1 className="text-2xl md:text-3xl font-bold text-syn-text leading-snug max-w-4xl">
-        {request.summary}
+        {presentation?.headline ?? request.summary}
       </h1>
-
-      <div className="grid md:grid-cols-2 gap-3">
-        {request.rawRequest && (
-          <div className="bg-syn-card border border-syn-border rounded-xl p-4">
-            <div className="flex items-center gap-2 text-syn-muted text-[11px] font-semibold tracking-wider uppercase mb-2">
-              <MessageSquareQuote size={13} />
-              What was asked
-            </div>
-            <p className="text-syn-secondary text-sm italic leading-relaxed">“{request.rawRequest}”</p>
-          </div>
-        )}
-        {request.assumptions.length > 0 && (
-          <div className="bg-syn-card border border-syn-border rounded-xl p-4">
-            <div className="flex items-center gap-2 text-syn-muted text-[11px] font-semibold tracking-wider uppercase mb-2">
-              <Info size={13} />
-              Assumptions
-            </div>
-            <ul className="space-y-1">
-              {request.assumptions.map((assumption) => (
-                <li key={assumption} className="text-syn-secondary text-sm">
-                  · {assumption}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+      {presentation?.headline && request.summary && (
+        <p className="text-syn-secondary text-sm max-w-4xl">{request.summary}</p>
+      )}
     </section>
+  );
+}
+
+function AskedCard({ request }: { request: ConfigurationRequest }) {
+  return (
+    <div className="bg-syn-card border border-syn-border rounded-xl p-4">
+      <div className="flex items-center gap-2 text-syn-muted text-[11px] font-semibold tracking-wider uppercase mb-2">
+        <MessageSquareQuote size={13} />
+        What was asked
+      </div>
+      <p className="text-syn-secondary text-sm italic leading-relaxed">“{request.rawRequest}”</p>
+    </div>
+  );
+}
+
+function AssumptionsCard({ assumptions }: { assumptions: string[] }) {
+  return (
+    <div className="bg-syn-card border border-syn-border rounded-xl p-4">
+      <div className="flex items-center gap-2 text-syn-muted text-[11px] font-semibold tracking-wider uppercase mb-2">
+        <Info size={13} />
+        Assumptions
+      </div>
+      <ul className="space-y-1">
+        {assumptions.map((assumption) => (
+          <li key={assumption} className="text-syn-secondary text-sm">
+            · {assumption}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function RequestContext({ request }: { request: ConfigurationRequest }) {
+  if (!request.rawRequest && request.assumptions.length === 0) return null;
+  return (
+    <div className="grid md:grid-cols-2 gap-3">
+      {request.rawRequest && <AskedCard request={request} />}
+      {request.assumptions.length > 0 && <AssumptionsCard assumptions={request.assumptions} />}
+    </div>
+  );
+}
+
+// ── Composed sections ─────────────────────────────────────────────────────────
+export function HighlightsCard({ section }: { section: PresentationSection }) {
+  return (
+    <div className="bg-syn-card border border-syn-border rounded-xl p-6">
+      <div className="flex items-center gap-2 text-syn-accent text-[11px] font-semibold tracking-wider uppercase mb-4">
+        <Lightbulb size={13} />
+        {section.title ?? 'Why it fits'}
+      </div>
+      <ul className="grid md:grid-cols-2 gap-3">
+        {section.items.map((item) => (
+          <li key={item} className="flex items-start gap-2.5 text-syn-text text-sm leading-relaxed">
+            <Check size={16} className="text-syn-success shrink-0 mt-0.5" />
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** What the customer's own quantity costs, what it saves, and how far the next discount is. */
+function SavingsCard({
+  product,
+  quantity,
+  customerName,
+  title,
+}: {
+  product: RequestProduct;
+  quantity: number;
+  customerName?: string;
+  title?: string;
+}) {
+  const bands = buildPriceBands(product.unitPrice ?? 0, product.tiers);
+  const price = priceForQuantity(bands, quantity);
+  const saving = price.listTotal - price.total;
+  const isMonthly = product.billing === 'monthly';
+  const period = isMonthly ? ' / month' : '';
+  const nextBand = bands.find((band) => band.fromQuantity > quantity);
+  const nextPrice = nextBand && priceForQuantity(bands, nextBand.fromQuantity);
+
+  return (
+    <div className="relative overflow-hidden bg-syn-card border border-syn-border-bright rounded-xl p-6">
+      <div className="absolute inset-0 bg-syn-gradient-subtle pointer-events-none" />
+      <div className="relative space-y-5">
+        <div className="flex items-center gap-2 text-syn-accent text-[11px] font-semibold tracking-wider uppercase">
+          <PiggyBank size={14} />
+          {title ?? `What ${customerName ?? 'the customer'} saves`}
+        </div>
+        <div className="grid md:grid-cols-3 gap-4">
+          <div>
+            <div className="text-syn-muted text-xs">
+              {quantity.toLocaleString()} × {product.name}
+            </div>
+            <div className="text-4xl font-bold text-syn-text tracking-tight tabular-nums mt-1">
+              {formatMoney(price.total)}
+              <span className="text-syn-muted text-base font-normal">{period}</span>
+            </div>
+            <div className="text-syn-muted text-xs tabular-nums mt-1">
+              {formatMoney(price.unitPrice)} per user
+              {price.band.discountPct > 0 && ` · ${price.band.discountPct}% off list`}
+            </div>
+          </div>
+          <div>
+            <div className="text-syn-muted text-xs">Saved vs list price</div>
+            <div className={`text-4xl font-bold tracking-tight tabular-nums mt-1 ${saving > 0 ? 'text-syn-success' : 'text-syn-secondary'}`}>
+              {formatMoney(saving)}
+              <span className="text-syn-muted text-base font-normal">{period}</span>
+            </div>
+            {isMonthly && saving > 0 && (
+              <div className="text-syn-success text-xs tabular-nums mt-1">{formatMoney(saving * 12)} a year</div>
+            )}
+          </div>
+          <div className="bg-syn-surface border border-syn-border rounded-xl p-4 flex flex-col justify-center">
+            {nextBand && nextPrice ? (
+              <>
+                <div className="flex items-center gap-1.5 text-syn-text text-sm font-semibold">
+                  <TrendingUp size={14} className="text-syn-accent" />
+                  {(nextBand.fromQuantity - quantity).toLocaleString()} more to reach {nextBand.discountPct}% off
+                </div>
+                <p className="text-syn-muted text-xs mt-1 tabular-nums">
+                  At {nextBand.fromQuantity.toLocaleString()} users every seat drops to {formatMoney(nextBand.unitPrice)}.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-1.5 text-syn-text text-sm font-semibold">
+                  <Check size={14} className="text-syn-success" />
+                  Best rate reached
+                </div>
+                <p className="text-syn-muted text-xs mt-1">No higher volume discount exists for this product.</p>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -174,12 +305,20 @@ function ProductHeading({ product }: { product: RequestProduct }) {
 }
 
 // ── Volume tier layout ────────────────────────────────────────────────────────
-function VolumeTierCard({ product, side }: { product: RequestProduct; side: Side }) {
+function VolumeTierCard({
+  product,
+  side,
+  initialQuantity,
+}: {
+  product: RequestProduct;
+  side: Side;
+  initialQuantity?: number;
+}) {
   const listPrice = product.unitPrice ?? 0;
   const bands = useMemo(() => buildPriceBands(listPrice, product.tiers), [listPrice, product.tiers]);
-  const lastFrom = bands[bands.length - 1].fromQuantity;
+  const lastFrom = Math.max(bands[bands.length - 1].fromQuantity, initialQuantity ?? 0);
   const maxQuantity = Math.max(100, Math.ceil((lastFrom * 1.5) / 50) * 50);
-  const [quantity, setQuantity] = useState(product.tiers[0]?.fromQuantity ?? 1);
+  const [quantity, setQuantity] = useState(initialQuantity ?? product.tiers[0]?.fromQuantity ?? 1);
   const price = priceForQuantity(bands, quantity);
   const saving = price.listTotal - price.total;
 
@@ -444,8 +583,71 @@ function BundleCard({ bundle, side, requestId }: { bundle: RequestBundle; side: 
   );
 }
 
+// ── Page assembly ─────────────────────────────────────────────────────────────
+function OfferSection({ offer, side }: { offer: RequestOffer; side: Side }) {
+  const { request, products, bundle } = offer;
+  if (request.pricingType === 'bundle' && !bundle) {
+    return (
+      <Message
+        icon={<Package size={28} />}
+        title="Bundle not found"
+        text="This request describes a bundle, but no bundle product was built for it."
+      />
+    );
+  }
+  return (
+    <div className="space-y-4">
+      {bundle && <BundleCard bundle={bundle} side={side} requestId={request.requestId} />}
+      {products.map((product) =>
+        request.pricingType === 'volume-tier' && product.tiers.length > 0 ? (
+          <VolumeTierCard
+            key={product.id}
+            product={product}
+            side={side}
+            initialQuantity={request.presentation?.customerQuantity}
+          />
+        ) : (
+          <FlatCard key={product.id} product={product} side={side} />
+        ),
+      )}
+    </div>
+  );
+}
+
+function ComposedSection({ section, offer, side }: { section: PresentationSection; offer: RequestOffer; side: Side }) {
+  const { request, products } = offer;
+  switch (section.type) {
+    case 'offer':
+      return <OfferSection offer={offer} side={side} />;
+    case 'savings': {
+      const quantity = request.presentation?.customerQuantity;
+      const tiered = products.filter((p) => p.tiers.length > 0);
+      if (!quantity || tiered.length === 0) return null;
+      return (
+        <div className="space-y-4">
+          {tiered.map((product) => (
+            <SavingsCard
+              key={product.id}
+              product={product}
+              quantity={quantity}
+              customerName={request.presentation?.customerName}
+              title={section.title}
+            />
+          ))}
+        </div>
+      );
+    }
+    case 'highlights':
+      return section.items.length > 0 ? <HighlightsCard section={section} /> : null;
+    case 'assumptions':
+      return request.assumptions.length > 0 ? <AssumptionsCard assumptions={request.assumptions} /> : null;
+    case 'request':
+      return request.rawRequest ? <AskedCard request={request} /> : null;
+  }
+}
+
 // ── Page states ───────────────────────────────────────────────────────────────
-function Message({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
+export function Message({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
   return (
     <div className="max-w-xl mx-auto mt-24 text-center bg-syn-card border border-syn-border rounded-xl p-8">
       <div className="flex justify-center text-syn-accent mb-3">{icon}</div>
@@ -481,7 +683,8 @@ export default function RequestPage({ requestId }: { requestId: string }) {
       />
     );
   } else {
-    const { request, products, bundle } = offer;
+    const { request } = offer;
+    const sections = request.presentation?.sections ?? [];
     body = (
       <motion.main
         initial={{ opacity: 0, y: 16 }}
@@ -489,25 +692,24 @@ export default function RequestPage({ requestId }: { requestId: string }) {
         transition={{ duration: 0.3 }}
         className="max-w-6xl mx-auto px-6 py-10 space-y-8"
       >
-        <RequestSummary request={request} />
+        <RequestHeader request={request} />
 
-        {request.pricingType === 'bundle' && !bundle ? (
-          <Message
-            icon={<Package size={28} />}
-            title="Bundle not found"
-            text="This request describes a bundle, but no bundle product was built for it."
-          />
+        {sections.length === 0 ? (
+          <>
+            <RequestContext request={request} />
+            <OfferSection offer={offer} side={side} />
+          </>
         ) : (
-          <div className="space-y-4">
-            {bundle && <BundleCard bundle={bundle} side={side} requestId={request.requestId} />}
-            {products.map((product) =>
-              request.pricingType === 'volume-tier' && product.tiers.length > 0 ? (
-                <VolumeTierCard key={product.id} product={product} side={side} />
-              ) : (
-                <FlatCard key={product.id} product={product} side={side} />
-              ),
-            )}
-          </div>
+          sections.map((section, index) => (
+            <motion.div
+              key={section.type}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.08 * index }}
+            >
+              <ComposedSection section={section} offer={offer} side={side} />
+            </motion.div>
+          ))
         )}
 
         <footer className="text-syn-muted text-xs pt-2">

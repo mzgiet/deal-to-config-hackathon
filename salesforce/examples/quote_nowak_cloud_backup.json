@@ -1,0 +1,20 @@
+{
+  "account": "Nowak Design",
+  "lines": [{ "product": "Cloud Backup", "quantity": 8 }],
+  "presentation": {
+    "headline": "Every design file at Nowak Design backed up, for $64 a month",
+    "customer": { "name": "Nowak Design", "quantity": 8 },
+    "sections": [
+      {
+        "type": "highlights",
+        "title": "Why it fits a studio of 8",
+        "items": [
+          "One price per person, nothing to install or maintain",
+          "No set-up fee: start with the 8 people you have today",
+          "Add people as the studio grows; the 10% volume rate starts at 50"
+        ]
+      },
+      "offer"
+    ]
+  }
+}

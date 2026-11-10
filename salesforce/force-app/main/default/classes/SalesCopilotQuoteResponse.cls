@@ -8,6 +8,7 @@ public with sharing class SalesCopilotQuoteResponse {
     public Decimal grandTotal;
     public String accountId;
     public String opportunityId;
+    public String pageUrl;
     public Boolean approvalRequired;
     public List<String> approvalReasons;
     public String error;
@@ -33,6 +34,11 @@ public with sharing class SalesCopilotQuoteResponse {
         response.approvalReasons = approvalReasons.isEmpty() ? null : approvalReasons;
         response.statusCode = SalesCopilotConstants.HTTP_OK;
         return response;
+    }
+
+    public SalesCopilotQuoteResponse withPageUrl(String pageUrl) {
+        this.pageUrl = pageUrl;
+        return this;
     }
 
     public static SalesCopilotQuoteResponse failed(String requestId, Integer statusCode, String error) {

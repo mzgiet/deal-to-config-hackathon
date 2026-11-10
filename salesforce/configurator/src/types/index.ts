@@ -109,6 +109,46 @@ export interface ConfigurationRequest {
   rawRequest: string;
   assumptions: string[];
   createdDate: string;
+  /** Page the agent composed; null renders the default layout. */
+  presentation: Presentation | null;
+}
+
+export type PresentationSectionType = 'offer' | 'savings' | 'highlights' | 'assumptions' | 'request';
+
+export interface PresentationSection {
+  type: PresentationSectionType;
+  title?: string;
+  items: string[];
+}
+
+export interface Presentation {
+  headline?: string;
+  customerName?: string;
+  customerQuantity?: number;
+  sections: PresentationSection[];
+}
+
+export interface CustomerQuoteLine {
+  productId: string;
+  productName: string;
+  quantity: number;
+  listPrice: number;
+  /** After volume tiers and the manual discount, as Revenue Cloud priced it. */
+  total: number;
+  discountPct: number | null;
+  billing: Billing;
+  tiers: VolumeTier[];
+}
+
+export interface CustomerQuote {
+  id: string;
+  name: string;
+  status: string;
+  grandTotal: number;
+  accountName: string | null;
+  createdDate: string;
+  presentation: Presentation | null;
+  lines: CustomerQuoteLine[];
 }
 
 export interface RequestOffer {

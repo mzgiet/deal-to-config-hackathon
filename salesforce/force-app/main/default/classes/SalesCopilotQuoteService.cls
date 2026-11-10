@@ -22,11 +22,13 @@ public with sharing class SalesCopilotQuoteService {
 
             final Account account = input.get('account') == null ? null : resolveAccount(String.valueOf(input.get('account')));
             final List<Line> lines;
+            SalesCopilotRequestWrapper.Presentation presentation;
             if (input.containsKey('lines')) {
                 if (account == null) {
                     throw new InvalidQuoteRequestException('account is required with lines');
                 }
                 lines = toLines(input.get('lines'));
+                presentation = toPresentation(input.get('presentation'));
             } else if (String.isNotBlank(requestId)) {
                 if (SalesCopilotSelector.getRequestByRequestId(requestId) == null) {
                     return SalesCopilotQuoteResponse.failed(
@@ -42,7 +44,7 @@ public with sharing class SalesCopilotQuoteService {
             if (account != null) {
                 checkSegment(account, lines);
             }
-            return place(requestId, account, lines);
+            return place(requestId, account, lines, presentation);
         } catch (InvalidQuoteRequestException e) {
             return SalesCopilotQuoteResponse.failed(requestId, SalesCopilotConstants.HTTP_BAD_REQUEST, e.getMessage());
         } catch (Exception e) {
@@ -54,7 +56,12 @@ public with sharing class SalesCopilotQuoteService {
         }
     }
 
-    private static SalesCopilotQuoteResponse place(String requestId, Account account, List<Line> lines) {
+    private static SalesCopilotQuoteResponse place(
+        String requestId,
+        Account account,
+        List<Line> lines,
+        SalesCopilotRequestWrapper.Presentation presentation
+    ) {
         final List<String> approvalReasons = getApprovalReasons(lines);
         final Savepoint savepoint = Database.setSavepoint();
 
@@ -95,13 +102,54 @@ public with sharing class SalesCopilotQuoteService {
                 'Revenue Cloud rejected the quote: ' + String.valueOf(response.errorResponse)
             );
         }
+        // The pricing graph only takes fields the pricing procedure knows, so the page is stored afterwards.
+        String pageUrl;
+        if (presentation != null) {
+            try {
+                update new Quote(Id = response.salesTransactionId, Presentation__c = JSON.serialize(presentation, true));
+            } catch (DmlException e) {
+                Database.rollback(savepoint);
+                return SalesCopilotQuoteResponse.failed(
+                    requestId,
+                    SalesCopilotConstants.HTTP_SERVER_ERROR,
+                    'The quote page could not be saved: ' + e.getDmlMessage(0)
+                );
+            }
+            pageUrl = buildPageUrl(response.salesTransactionId);
+        }
         return SalesCopilotQuoteResponse.created(
             requestId,
             SalesCopilotSelector.getQuoteById(response.salesTransactionId),
             account?.Id,
             opportunity?.Id,
             approvalReasons
-        );
+        ).withPageUrl(pageUrl);
+    }
+
+    private static String buildPageUrl(Id quoteId) {
+        final String startUrl = SalesCopilotSelector.getAppStartUrl(SalesCopilotConstants.APP_NAME);
+        if (String.isBlank(startUrl)) {
+            return null;
+        }
+        return startUrl + (startUrl.contains('?') ? '&' : '?') + SalesCopilotConstants.QUOTE_ID_PARAM + '=' + quoteId;
+    }
+
+    private static SalesCopilotRequestWrapper.Presentation toPresentation(Object value) {
+        SalesCopilotRequestWrapper.Presentation presentation;
+        try {
+            presentation = SalesCopilotRequestWrapper.parsePresentation(value);
+        } catch (SalesCopilotRequestWrapper.InvalidRequestException e) {
+            throw new InvalidQuoteRequestException(e.getMessage());
+        }
+        if (presentation == null) {
+            return null;
+        }
+        final List<String> errors = new List<String>();
+        presentation.validate(SalesCopilotConstants.QUOTE_SECTION_TYPES, errors);
+        if (!errors.isEmpty()) {
+            throw new InvalidQuoteRequestException(String.join(errors, '; '));
+        }
+        return presentation;
     }
 
     // ─── Lines ───────────────────────────────────────────────────────────────
