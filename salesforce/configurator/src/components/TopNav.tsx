@@ -93,8 +93,7 @@ export default function TopNav() {
                 exit={{ opacity: 0, scale: 0.8, x: 12 }}
                 transition={{ type: 'spring', damping: 18, stiffness: 320 }}
                 onClick={() => openOffer()}
-                className="relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white overflow-hidden group"
-                style={{ background: 'linear-gradient(135deg, #FF5733, #8B3DFF)' }}
+                className="relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-syn-accent text-syn-on-accent overflow-hidden group"
               >
                 {/* Subtle shimmer sweep on hover */}
                 <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out" />

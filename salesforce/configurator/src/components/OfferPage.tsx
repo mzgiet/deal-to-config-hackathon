@@ -258,8 +258,7 @@ function OfferSummary() {
       {/* CTA */}
       <div className="px-5 pb-5 pt-4 border-t border-syn-border space-y-2">
         <button
-          className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98]"
-          style={{ background: 'linear-gradient(135deg, #FF5733, #8B3DFF)' }}
+          className="w-full py-3 rounded-lg bg-syn-accent font-semibold text-sm text-syn-on-accent flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98]"
           onClick={() => alert('Quote creation coming in Faza 2 — will create a Salesforce Quote with these line items.')}
         >
           <FileText size={15} />

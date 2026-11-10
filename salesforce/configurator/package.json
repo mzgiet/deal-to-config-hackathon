@@ -11,6 +11,7 @@
     "open": "node -e \"const {execSync}=require('child_process');const q='SELECT StartUrl FROM AppMenuItem WHERE Name = \\'RevenueConfigurator\\'';const r=JSON.parse(execSync('sf data query --query \\\"'+q+'\\\" --json',{cwd:'..'}).toString());const url=r.result.records[0].StartUrl;execSync('open \\\"'+url+'\\\"');console.log('Opened '+url)\""
   },
   "dependencies": {
+    "@fontsource-variable/montserrat": "^5.3.0",
     "@salesforce/sdk-data": "^1.135.0",
     "@tanstack/react-query": "^5.100.14",
     "embla-carousel-react": "^8.0.0",

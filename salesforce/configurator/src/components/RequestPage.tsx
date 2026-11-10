@@ -14,6 +14,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { useRequestOffer } from '../hooks/useRequestOffer';
+import { BRAND } from '../theme';
 import { createSFQuote, type CreatedQuote } from '../lib/sfGraphQL';
 import { buildPriceBands, formatMoney, priceForQuantity } from '../lib/requestPricing';
 import type {
@@ -54,15 +55,12 @@ function RequestNav({
   onSideChange: (side: Side) => void;
 }) {
   return (
-    <nav className="sticky top-0 z-50 glass border-b border-syn-border shrink-0">
+    <nav className="sticky top-0 z-50 glass keyline-bottom border-x-0 border-t-0 shrink-0">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-4">
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-syn-gradient flex items-center justify-center shrink-0">
-            <span className="text-white font-bold text-sm tracking-tight">S</span>
-          </div>
           <div className="leading-none">
             <div className="text-syn-text font-semibold text-sm tracking-wider">SYNECHRON</div>
-            <div className="text-syn-muted text-[10px] tracking-widest uppercase">Sales Copilot</div>
+            <div className="text-syn-accent text-[10px] font-semibold tracking-[0.15em] uppercase mt-1">Sales Copilot</div>
           </div>
         </div>
 
@@ -76,7 +74,7 @@ function RequestNav({
           </>
         )}
 
-        <div className="ml-auto flex items-center gap-1 bg-syn-card border border-syn-border rounded-xl p-1">
+        <div className="ml-auto flex items-center gap-1 bg-syn-card border border-syn-border rounded-lg p-1">
           {(['Business', 'Consumer'] as Side[]).map((option) => {
             const Icon = option === 'Business' ? Briefcase : Home;
             const active = option === side;
@@ -84,14 +82,14 @@ function RequestNav({
               <button
                 key={option}
                 onClick={() => onSideChange(option)}
-                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  active ? 'text-white' : 'text-syn-muted hover:text-syn-secondary'
+                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                  active ? 'text-syn-on-accent' : 'text-syn-secondary hover:text-white'
                 }`}
               >
                 {active && (
                   <motion.span
                     layoutId="side-pill"
-                    className="absolute inset-0 rounded-lg bg-syn-gradient"
+                    className="absolute inset-0 rounded-md bg-syn-accent"
                     transition={{ type: 'spring', damping: 22, stiffness: 320 }}
                   />
                 )}
@@ -110,7 +108,7 @@ function RequestNav({
 function RequestSummary({ request }: { request: ConfigurationRequest }) {
   return (
     <section className="space-y-4">
-      <div className="flex items-center gap-2 text-syn-orange text-xs font-semibold tracking-widest uppercase">
+      <div className="flex items-center gap-2 text-syn-accent text-xs font-semibold tracking-[0.15em] uppercase">
         <Sparkles size={13} />
         Configured from a request
       </div>
@@ -120,7 +118,7 @@ function RequestSummary({ request }: { request: ConfigurationRequest }) {
 
       <div className="grid md:grid-cols-2 gap-3">
         {request.rawRequest && (
-          <div className="bg-syn-card border border-syn-border rounded-2xl p-4">
+          <div className="bg-syn-card border border-syn-border rounded-xl p-4">
             <div className="flex items-center gap-2 text-syn-muted text-[11px] font-semibold tracking-wider uppercase mb-2">
               <MessageSquareQuote size={13} />
               What was asked
@@ -129,7 +127,7 @@ function RequestSummary({ request }: { request: ConfigurationRequest }) {
           </div>
         )}
         {request.assumptions.length > 0 && (
-          <div className="bg-syn-card border border-syn-border rounded-2xl p-4">
+          <div className="bg-syn-card border border-syn-border rounded-xl p-4">
             <div className="flex items-center gap-2 text-syn-muted text-[11px] font-semibold tracking-wider uppercase mb-2">
               <Info size={13} />
               Assumptions
@@ -152,7 +150,7 @@ function RequestSummary({ request }: { request: ConfigurationRequest }) {
 function NotAvailable({ product, side }: { product: RequestProduct; side: Side }) {
   const other: Side = side === 'Business' ? 'Consumer' : 'Business';
   return (
-    <div className="absolute inset-0 z-10 rounded-2xl bg-syn-bg/80 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6">
+    <div className="absolute inset-0 z-10 rounded-xl bg-syn-bg/80 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6">
       <div className="text-syn-text font-semibold">Not available for {SIDE_LABEL[side].customers}</div>
       <p className="text-syn-muted text-sm mt-1">
         {product.name} is offered to {SIDE_LABEL[other].customers} only.
@@ -186,7 +184,7 @@ function VolumeTierCard({ product, side }: { product: RequestProduct; side: Side
   const saving = price.listTotal - price.total;
 
   return (
-    <div className="relative bg-syn-card border border-syn-border rounded-2xl p-6 space-y-6">
+    <div className="relative bg-syn-card border border-syn-border rounded-xl p-6 space-y-6">
       {!isAvailableFor(product, side) && <NotAvailable product={product} side={side} />}
       <ProductHeading product={product} />
 
@@ -202,7 +200,7 @@ function VolumeTierCard({ product, side }: { product: RequestProduct; side: Side
                 <div
                   key={band.fromQuantity}
                   className={`flex items-center gap-3 px-4 py-3 text-sm border-b border-syn-border last:border-b-0 transition-colors ${
-                    active ? 'bg-syn-gradient-subtle' : ''
+                    active ? 'bg-syn-gradient-subtle shadow-[inset_3px_0_0_#FBF321]' : ''
                   }`}
                 >
                   <span className={`w-28 tabular-nums ${active ? 'text-syn-text font-semibold' : 'text-syn-secondary'}`}>
@@ -247,7 +245,7 @@ function VolumeTierCard({ product, side }: { product: RequestProduct; side: Side
             max={maxQuantity}
             value={Math.min(quantity, maxQuantity)}
             onChange={(e) => setQuantity(Number(e.target.value))}
-            className="w-full mt-4 accent-[#FF5733]"
+            className="w-full mt-4 accent-[#FBF321]"
           />
 
           <div className="mt-auto pt-6 space-y-1">
@@ -256,8 +254,8 @@ function VolumeTierCard({ product, side }: { product: RequestProduct; side: Side
             </div>
             <motion.div
               key={price.total}
-              initial={{ scale: 1.04, color: '#FF5733' }}
-              animate={{ scale: 1, color: '#FFFFFF' }}
+              initial={{ scale: 1.04, color: BRAND.flash }}
+              animate={{ scale: 1, color: BRAND.text }}
               transition={{ duration: 0.4 }}
               className="text-4xl font-bold tracking-tight tabular-nums"
             >
@@ -276,7 +274,7 @@ function VolumeTierCard({ product, side }: { product: RequestProduct; side: Side
 // ── Flat layout ───────────────────────────────────────────────────────────────
 function FlatCard({ product, side }: { product: RequestProduct; side: Side }) {
   return (
-    <div className="relative bg-syn-card border border-syn-border rounded-2xl p-6 space-y-4">
+    <div className="relative bg-syn-card border border-syn-border rounded-xl p-6 space-y-4">
       {!isAvailableFor(product, side) && <NotAvailable product={product} side={side} />}
       <ProductHeading product={product} />
       <div className="text-4xl font-bold text-syn-text tracking-tight tabular-nums">
@@ -331,12 +329,12 @@ function CreateQuoteButton({ requestId, addOns }: { requestId: string; addOns: s
       <button
         onClick={create}
         disabled={state.kind === 'busy'}
-        className="w-full flex items-center justify-center gap-2 rounded-xl bg-syn-gradient px-4 py-3 text-sm font-semibold text-white disabled:opacity-60 transition-opacity"
+        className="w-full flex items-center justify-center gap-2 rounded-lg bg-syn-accent px-4 py-3 text-sm font-semibold text-syn-on-accent hover:brightness-95 disabled:opacity-60 transition"
       >
         {state.kind === 'busy' ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
         {state.kind === 'busy' ? 'Creating quote…' : isStale ? 'Create a new quote' : 'Create quote'}
       </button>
-      {state.kind === 'error' && <p className="text-xs text-red-400">{state.message}</p>}
+      {state.kind === 'error' && <p className="text-xs text-syn-danger">{state.message}</p>}
     </div>
   );
 }
@@ -360,7 +358,7 @@ function BundleCard({ bundle, side, requestId }: { bundle: RequestBundle; side: 
     });
 
   return (
-    <div className="relative bg-syn-card border border-syn-border rounded-2xl p-6 space-y-6">
+    <div className="relative bg-syn-card border border-syn-border rounded-xl p-6 space-y-6">
       {!isAvailableFor(bundle.product, side) && <NotAvailable product={bundle.product} side={side} />}
       <ProductHeading product={bundle.product} />
 
@@ -376,7 +374,7 @@ function BundleCard({ bundle, side, requestId }: { bundle: RequestBundle; side: 
               <div
                 key={product.id}
                 className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
-                  on ? 'border-syn-border-bright bg-syn-gradient-subtle' : 'border-syn-border'
+                  on ? 'border-syn-border-bright bg-syn-gradient-subtle shadow-[inset_3px_0_0_#FBF321]' : 'border-syn-border'
                 }`}
               >
                 {component.isOptional ? (
@@ -385,10 +383,10 @@ function BundleCard({ bundle, side, requestId }: { bundle: RequestBundle; side: 
                     aria-checked={on}
                     aria-label={`Add ${product.name}`}
                     onClick={() => toggle(product.id)}
-                    className={`relative w-9 h-5 rounded-full shrink-0 transition-colors ${on ? 'bg-syn-orange' : 'bg-syn-border'}`}
+                    className={`relative w-9 h-5 rounded-full shrink-0 transition-colors ${on ? 'bg-syn-accent' : 'bg-syn-border-bright'}`}
                   >
                     <span
-                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${on ? 'left-[18px]' : 'left-0.5'}`}
+                      className={`absolute top-0.5 w-4 h-4 rounded-full transition-all ${on ? 'left-[18px] bg-syn-primary' : 'left-0.5 bg-white'}`}
                     />
                   </button>
                 ) : (
@@ -425,8 +423,8 @@ function BundleCard({ bundle, side, requestId }: { bundle: RequestBundle; side: 
                 </div>
                 <motion.div
                   key={totals[billing]}
-                  initial={{ scale: 1.04, color: '#FF5733' }}
-                  animate={{ scale: 1, color: '#FFFFFF' }}
+                  initial={{ scale: 1.04, color: BRAND.flash }}
+                  animate={{ scale: 1, color: BRAND.text }}
                   transition={{ duration: 0.4 }}
                   className="text-4xl font-bold tracking-tight tabular-nums"
                 >
@@ -449,8 +447,8 @@ function BundleCard({ bundle, side, requestId }: { bundle: RequestBundle; side: 
 // ── Page states ───────────────────────────────────────────────────────────────
 function Message({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
   return (
-    <div className="max-w-xl mx-auto mt-24 text-center bg-syn-card border border-syn-border rounded-2xl p-8">
-      <div className="flex justify-center text-syn-orange mb-3">{icon}</div>
+    <div className="max-w-xl mx-auto mt-24 text-center bg-syn-card border border-syn-border rounded-xl p-8">
+      <div className="flex justify-center text-syn-accent mb-3">{icon}</div>
       <div className="text-syn-text font-semibold text-lg">{title}</div>
       <p className="text-syn-muted text-sm mt-2">{text}</p>
     </div>
@@ -469,7 +467,7 @@ export default function RequestPage({ requestId }: { requestId: string }) {
       <div className="max-w-6xl mx-auto px-6 py-10 space-y-4">
         <div className="h-6 w-56 rounded bg-syn-card animate-pulse" />
         <div className="h-10 w-3/4 rounded bg-syn-card animate-pulse" />
-        <div className="h-64 rounded-2xl bg-syn-card animate-pulse" />
+        <div className="h-64 rounded-xl bg-syn-card animate-pulse" />
       </div>
     );
   } else if (error) {
@@ -521,7 +519,7 @@ export default function RequestPage({ requestId }: { requestId: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-syn-bg flex flex-col">
+    <div className="min-h-screen flex flex-col">
       <RequestNav request={offer?.request ?? null} side={side} onSideChange={setChosenSide} />
       {body}
     </div>

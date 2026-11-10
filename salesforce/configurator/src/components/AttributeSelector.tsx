@@ -34,14 +34,9 @@ export default function AttributeSelector({ attribute, selectedValue, onChange, 
                 compact ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm'
               } ${
                 isSelected
-                  ? 'text-white shadow-lg shadow-syn-orange/25'
+                  ? 'bg-syn-accent text-syn-on-accent'
                   : 'bg-syn-card border border-syn-border text-syn-secondary hover:border-syn-border-bright hover:text-syn-text'
               }`}
-              style={
-                isSelected
-                  ? { background: 'linear-gradient(135deg, #FF5733, #8B3DFF)' }
-                  : {}
-              }
             >
               {val.label}
             </button>

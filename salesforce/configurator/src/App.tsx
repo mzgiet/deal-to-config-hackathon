@@ -49,7 +49,7 @@ function CatalogApp() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="min-h-screen bg-syn-bg flex flex-col"
+          className="min-h-screen flex flex-col"
         >
           <TopNav />
 

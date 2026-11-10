@@ -176,8 +176,7 @@ export default function ProductDetailDrawer({ product, onClose }: Props) {
                 openOffer({ product, selectedAttributes: attrs });
                 onClose();
               }}
-              className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg, #FF5733, #8B3DFF)' }}
+              className="w-full py-3 rounded-lg bg-syn-accent font-semibold text-sm text-syn-on-accent flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98]"
             >
               <Sparkles size={15} />
               {cart.length === 0 ? 'Visualise Cart' : 'Add to Cart'}
