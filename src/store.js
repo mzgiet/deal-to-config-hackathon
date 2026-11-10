@@ -4,7 +4,7 @@
  *
  * Session: { id, channelId, userId, rawRequest, hints, answers,
  *            analysis, revisions: [{ userId, text }], status, card: { channel, ts }, result, error }
- * status:  draft -> ready -> building -> built | failed, or discarded
+ * status:  draft -> ready -> building -> built | failed | exists, or discarded
  */
 
 const crypto = require('node:crypto');

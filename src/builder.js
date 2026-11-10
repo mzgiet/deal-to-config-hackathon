@@ -55,6 +55,12 @@ async function buildInSalesforce(contract) {
     sfToken = null;
     res = await call();
   }
+  // 409 "exists": a product with that name is already in the catalog. Nothing
+  // failed - hand it back so the card can offer the existing offer instead.
+  if (res.status === 409) {
+    const body = await res.clone().json().catch(() => null);
+    if (body?.status === 'exists') return body;
+  }
   if (!res.ok) throw new Error(await errorMessage(res));
 
   const result = await res.json();

@@ -26,7 +26,7 @@ function registerCardActions(app) {
 
     try {
       session.result = await buildConfiguration(toContract(session));
-      session.status = 'built';
+      session.status = session.result.status === 'exists' ? 'exists' : 'built';
       await client.chat.update({ channel, ts, ...buildCard(session) });
       await client.chat.postMessage({ channel, thread_ts: ts, ...resultMessage(session) });
     } catch (err) {
@@ -45,7 +45,7 @@ function registerCardActions(app) {
       await expired(respond);
       return;
     }
-    if (!['ready', 'failed'].includes(session.status)) return;
+    if (!['ready', 'failed', 'exists'].includes(session.status)) return;
 
     session.status = 'discarded';
     session.closedBy = body.user.id;

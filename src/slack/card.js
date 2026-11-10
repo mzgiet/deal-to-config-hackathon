@@ -65,6 +65,16 @@ function statusBlock(session) {
         elements: [configuratorButton(session.result.artifactUrl)],
       };
 
+    case 'exists': // Salesforce: a product with that name is already in the catalog
+      return {
+        type: 'actions',
+        elements: [
+          ...existingOfferButtons(session.result),
+          { type: 'button', text: plain('Adjust'), action_id: 'adjust_config', value: session.id },
+          { type: 'button', text: plain('Discard'), action_id: 'discard_config', value: session.id },
+        ],
+      };
+
     case 'discarded':
       return { type: 'context', elements: [mrkdwn(`:wastebasket: Discarded by <@${session.closedBy}>`)] };
 
@@ -121,7 +131,27 @@ function configuratorButton(url) {
   };
 }
 
+// Only products Sales Copilot built carry a configurator link.
+function existingOfferButtons(result) {
+  const url = result.existingProducts?.find((p) => p.artifactUrl)?.artifactUrl;
+  return url ? [{ ...configuratorButton(url), text: plain(':mag: Open existing offer') }] : [];
+}
+
 function resultMessage(session) {
+  if (session.status === 'exists') {
+    const buttons = existingOfferButtons(session.result);
+    return {
+      text: `Already in the catalog: ${session.result.error}`,
+      blocks: [
+        {
+          type: 'section',
+          text: mrkdwn(`:information_source: *Already in the catalog* - nothing new was built.\n${session.result.error}\n_Open the existing offer, or Adjust to give the product a new name._`),
+        },
+        ...(buttons.length ? [{ type: 'actions', elements: buttons }] : []),
+      ],
+    };
+  }
+
   return {
     text: `Ready: ${session.result.artifactUrl}`,
     blocks: [

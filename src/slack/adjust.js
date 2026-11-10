@@ -14,7 +14,8 @@ const views = require('./views');
 const { startProgress, safeUpdate, short } = require('./modal-utils');
 
 const STEPS = ['Reading your change', 'Updating the configuration'];
-const EDITABLE = ['ready', 'failed'];
+// 'exists': the rep can rename the product and build again.
+const EDITABLE = ['ready', 'failed', 'exists'];
 const MIN_LENGTH = 3;
 
 function registerAdjust(app) {
@@ -68,6 +69,7 @@ function registerAdjust(app) {
       }
 
       session.analysis = analysis;
+      if (session.status === 'exists') session.status = 'ready'; // revised - can be built again
       session.revisions = [...(session.revisions ?? []), { userId: body.user.id, text: change }];
       await client.chat.update({ ...session.card, ...buildCard(session) });
       await safeUpdate(client, view.id, views.adjustDoneView(session));
