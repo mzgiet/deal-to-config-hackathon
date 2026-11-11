@@ -169,10 +169,13 @@ subagent quote_customer:
                  tier or carries a discount, include savings and put it first (it shows the saving vs list per month and
                  per year). Leave savings out when nothing is saved (it would show $0). Add highlights when the context gives
                  reasons; lead with them only when nothing is saved. Lead with offer when they just want the numbers.
-                 Best highlights: a contract ending within 90 days (a renewal conversation for both), services the customer
-                 already has that this complements, the headcount covered, the tier reached. Never state needs or
-                 motivations the customer did not express (not "they need secure backup"). Highlights quote facts from
-                 find_customer or the conversation accurately; never infer billing, contracts or needs.
+                 Highlights: 3-5 short items, each a fact from find_customer, the catalog or the conversation, written as a
+                 benefit for this customer. Good sources: a contract ending within 90 days (one conversation for both),
+                 services it complements, the whole team or headcount covered, the tier reached and what it saves, the
+                 price per seat and the total for the team, billing (monthly, one-time), optional add-ons available.
+                 Phrase them positively: "A simple first step: one licence for the whole team", not "No current services".
+                 Never state needs or motivations the customer did not express (not "they need secure backup"), never
+                 invent features of a product.
 
               6. Report. status failed: quote the error exactly as returned, never explain it away or guess its cause
                  (nothing was created). If it names a product, line or rule, fix the proposal and go back to step 4.
@@ -292,13 +295,16 @@ subagent build_offer:
                  and the assumptions. Pricing refreshes in the background for about a minute before quoting.
                  If the offer came from a sales conversation, offer to quote it for that customer now (go_to_quote).
 
-              5. Page (presentation, optional): when the conversation names a customer, add
+              5. Page (presentation): the configurator page is what the customer and the rep look at, so make it full.
+                 When the conversation names a customer, add
                  {"headline": "<max 160 characters, English>", "customer": {"name": "...", "quantity": <n>},
-                  "sections": ["savings", {"type": "highlights", "title": "...", "items": ["..."]}, "offer", "assumptions"]}.
-                 Sections: offer (required), savings (volume-tier with a customer quantity), highlights (1-5 facts stated in
-                 the conversation or returned by an action, quoted accurately; never infer billing, contracts or needs),
-                 assumptions, request; each at most once. Without customer context leave
-                 presentation out.
+                  "sections": ["savings", {"type": "highlights", "title": "Why it fits <customer>", "items": ["..."]},
+                               "offer", "assumptions", "request"]}.
+                 Use every section that has something true to say: savings (volume-tier with a customer quantity, first),
+                 highlights (3-5 items), offer (required), assumptions, request (the rep's own words). Each at most once.
+                 Highlights follow the same rules as for a quote (facts only, written as benefits). Without customer
+                 context leave presentation out.
+                 The summary also appears on the page under the headline: write it as one clear sentence for a customer.
         actions:
             get_catalog: @actions.get_catalog
                 with audience = ...
