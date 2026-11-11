@@ -137,6 +137,12 @@ Two flows, two roles:
 This mirrors the Salesforce side's demo scenarios (`salesforce/demo/`), which the
 Cursor channel runs through the skills in `salesforce/skills/`.
 
+A third channel, being built alongside the bot (not replacing it yet): an
+Agentforce Employee Agent (`salesforce/.../aiAuthoringBundles/Sales_Copilot/`, Claude
+Sonnet 4.5 via `model_config`) whose actions (`SalesCopilotAgent*.cls`) wrap the same
+Apex services, talked to in Slack in plain words. If it proves intuitive enough it
+may replace the bot. See `docs/agentforce.md`.
+
 ## Running it
 
 `.env` (never committed):
