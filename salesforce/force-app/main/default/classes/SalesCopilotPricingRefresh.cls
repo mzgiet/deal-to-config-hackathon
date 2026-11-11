@@ -6,6 +6,7 @@
 public with sharing class SalesCopilotPricingRefresh implements Queueable {
 
     private static final Integer PASSES = 2;
+    private static final String FLOW_NAME = 'SalesCopilot_Refresh_Decision_Table';
     private final Integer pass;
 
     public SalesCopilotPricingRefresh(Integer pass) {
@@ -27,16 +28,13 @@ public with sharing class SalesCopilotPricingRefresh implements Queueable {
         }
     }
 
-    /** Best effort, like the orchestrator's refresh: a failure is logged and never undoes the build. */
+    /**
+     * Best effort, like the orchestrator's refresh: a failure is logged and never undoes the build. Goes through a
+     * flow because Apex cannot invoke the refreshDecisionTable action ("isn't a valid action type").
+     */
     private static void refresh(String tableName) {
         try {
-            final Invocable.Action action = Invocable.Action.createStandardAction('refreshDecisionTable');
-            action.setInvocationParameter('DecisionTableApiName', tableName);
-            for (Invocable.Action.Result result : action.invoke()) {
-                if (!result.isSuccess()) {
-                    System.debug(LoggingLevel.WARN, 'Pricing refresh failed for ' + tableName + ': ' + result.getErrors());
-                }
-            }
+            Flow.Interview.createInterview(FLOW_NAME, new Map<String, Object>{ 'tableName' => tableName }).start();
         } catch (Exception e) {
             System.debug(LoggingLevel.WARN, 'Pricing refresh failed for ' + tableName + ': ' + e.getMessage());
         }
