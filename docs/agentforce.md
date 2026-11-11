@@ -7,7 +7,7 @@ and does not replace it. Both channels call the same Apex services, so they vali
 |---|---|---|
 | Entry | `/quote`, `/configure`, modals | A DM or @mention in plain words |
 | Confirming and changing | Cards with Build it, Create quote and Adjust | A question in the thread; changes are typed in the conversation |
-| Model | Claude through the API or `claude -p` | Claude Sonnet 4.5, hosted by Salesforce on Bedrock (`model_config`) |
+| Model | Claude through the API or `claude -p` | Claude Sonnet 5.5, hosted by Salesforce on Bedrock (`model_config`) |
 | Logic | `src/` plus the Apex endpoints | Instructions in `Sales_Copilot.agent` plus the same Apex services |
 | Runs as | The integration user (client credentials) | The Salesforce user mapped to the person in Slack |
 
@@ -84,6 +84,19 @@ with a well-formed id.
 
 `/lightning/app/c__RevenueConfigurator` does not work as a link. It opens the empty Lightning app shell, not the
 configurator.
+
+## Models
+
+The model is set by `model_config` in `Sales_Copilot.agent`. To find out what the org can run, put a model name
+there and preview: an unknown name fails with `ACTION_FAILED` ("Invalid model name" in the trace). Results in the
+scratch org on 2026-11-11:
+
+| Model (`sfdc_ai__Default…`) | Result |
+|---|---|
+| `BedrockAnthropicClaude55Sonnet` | Works. **Used**: best figures and customer context in testing |
+| `BedrockAnthropicClaude55Haiku`, `…Claude5Sonnet`, `…Claude46Sonnet`, `…Claude45Sonnet`, `…Claude45Haiku`, `…Claude4Sonnet`, `GPT5`, `GPT51`, `GPT41` | Work |
+| `…Claude45Opus`, `…Claude46Opus`, `…Claude47Opus`, `…Claude5Opus`, `…Claude55Opus` | Name accepted, but the reply is a canned "Live Chat support is currently unavailable". The trace shows `LLM_GATEKEEPER … limit=0 … org_status:Trial&model:advanced-models`: Opus counts as an advanced model, and the trial org has no quota for it |
+| Gemini (`VertexAIGemini25Pro`, `…3Pro`, `…35Pro`) | Not available |
 
 ## Test without Slack
 
