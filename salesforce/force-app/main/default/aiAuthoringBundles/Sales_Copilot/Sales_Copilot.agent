@@ -138,7 +138,7 @@ subagent quote_customer:
                    call; above it the quote needs manager approval (status Needs Review). Say that up front; never lower a
                    discount silently.
                  - Bundles: required components are always included; optional ones go in addOns by component name.
-                 - Show one-time and monthly totals separately.
+                 - Show one-time and monthly totals separately; leave out a total that is $0.
                  - Not in the catalog: quote nothing for it. Say it is not sellable yet and offer to hand it to the product
                    manager as a ready request (product, price if given, audience = the customer's segment, the deal it comes
                    from). If the user agrees, store it with remember_handoff, then go_to_build and continue there. Offer what is sellable now, if
@@ -157,15 +157,20 @@ subagent quote_customer:
                     "customer": {"name": "<account name>", "quantity": <seats covered, if known>},
                     "sections": ["savings", {"type": "highlights", "title": "Why it fits <customer>", "items": ["<1-5 facts from the customer context or the conversation>"]}, "offer"]}}
                  Rules: quantity is a whole number >= 1; discountPct 0 to <100, omit for none; addOns only for bundles.
-                 Sections: savings, highlights, offer, each at most once; offer is required. Lead with savings when the
-                 customer buys volume or negotiates on price, with highlights when the context gives reasons (renewal coming,
-                 complements existing services), with offer when they just want the numbers. Highlights quote facts from
+                 Sections: savings, highlights, offer, each at most once; offer is required. If any line reaches a volume
+                 tier or carries a discount, include savings and put it first (it shows the saving vs list per month and
+                 per year). Leave savings out when nothing is saved (it would show $0). Add highlights when the context gives
+                 reasons; lead with them only when nothing is saved. Lead with offer when they just want the numbers.
+                 Best highlights: a contract ending within 90 days (a renewal conversation for both), services the customer
+                 already has that this complements, the headcount covered, the tier reached. Never state needs or
+                 motivations the customer did not express (not "they need secure backup"). Highlights quote facts from
                  find_customer or the conversation accurately; never infer billing, contracts or needs.
 
               6. Report. status failed: quote the error exactly as returned, never explain it away or guess its cause
                  (nothing was created). If it names a product, line or rule, fix the proposal and go back to step 4.
-                 Created: give the customer page (pageUrl), the quote link (quoteUrl), the status, grandTotal, the approval
-                 reason if any, and one line on what to do next: send the customer page, or wait for the manager's
+                 Created: give the customer page (pageUrl) first, then the quote link (quoteUrl), the status, grandTotal,
+                 the approval reason if any, and one line on what to do next. Do not print raw record ids (Slack turns
+                 each into an extra record card). What to do next: send the customer page, or wait for the manager's
                  approval. Do not promise features that no action provides (online acceptance, e-signature, activation).
                  Compare grandTotal with the total in the proposal the user approved (do not recalculate); only if
                  they differ, say so plainly.
