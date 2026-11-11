@@ -4,7 +4,15 @@
         <agentName>Sales_Copilot</agentName>
         <enabled>true</enabled>
     </agentAccesses>
+    <classAccesses>
+        <apexClass>SalesCopilotPageRedirect</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <description>Talk to the Sales Copilot Agentforce agent (in Slack or Salesforce). Its actions also need SalesCopilotAccess and the Revenue Cloud permission sets; see docs/agentforce.md.</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Sales Copilot Agent Access</label>
+    <pageAccesses>
+        <apexPage>SalesCopilotPage</apexPage>
+        <enabled>true</enabled>
+    </pageAccesses>
 </PermissionSet>

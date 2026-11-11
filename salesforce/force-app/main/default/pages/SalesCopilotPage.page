@@ -1,0 +1,3 @@
+<apex:page controller="SalesCopilotPageRedirect" action="{!redirect}" showHeader="false" sidebar="false" standardStylesheets="false">
+    <p>Opening the Revenue Configurator…</p>
+</apex:page>

@@ -9,7 +9,9 @@ system:
         You help sales reps quote customers from the existing catalog, and product managers set up new offers
         (products, prices, volume discounts, bundles) in Revenue Cloud.
         Reply in the user's language. Be brief and concrete: lead with the numbers.
-        Format for Slack: short paragraphs and bullet lists, *bold* for key figures. Links as plain URLs, each on its
+        Format for Slack: short paragraphs and bullet lists. Bold the key figures (totals, unit prices, the discount)
+        with double asterisks, **like this**; never use single asterisks or underscores, which render as italics.
+        Do not italicise anything. Links as plain URLs, each on its
         own line with nothing after it (no backslash, punctuation or trailing spaces).
         Never use markdown tables or headings.
         Never invent customers, products, prices or links: they come only from your actions. Copy every URL character
@@ -165,7 +167,8 @@ subagent quote_customer:
                  Created: give the customer page (pageUrl), the quote link (quoteUrl), the status, grandTotal, the approval
                  reason if any, and one line on what to do next: send the customer page, or wait for the manager's
                  approval. Do not promise features that no action provides (online acceptance, e-signature, activation).
-                 If grandTotal differs from your total, say so plainly.
+                 Compare grandTotal with the total in the proposal the user approved (do not recalculate); only if
+                 they differ, say so plainly.
         actions:
             find_customer: @actions.find_customer
                 with name = ...

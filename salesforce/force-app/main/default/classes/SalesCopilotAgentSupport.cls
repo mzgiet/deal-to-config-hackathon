@@ -18,7 +18,7 @@ public with sharing class SalesCopilotAgentSupport {
     public static Result result(String status, Object body) {
         final Result result = new Result();
         result.status = status;
-        result.resultJson = JSON.serialize(body, true);
+        result.resultJson = SalesCopilotPageRedirect.toOrgDomainLinks(JSON.serialize(body, true));
         return result;
     }
 

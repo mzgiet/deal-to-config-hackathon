@@ -72,8 +72,18 @@ four domains with no CSP directives:
 - `*.my.salesforce.com` and `*.my.salesforce.app`;
 - the same two domains under `scratch.`, because a wildcard covers only one subdomain level.
 
-In `sf agent preview` the links were still redacted, even with the exact host on the list. Whether Slack shows
-them is still to be checked.
+In Slack, links on `*.scratch.my.salesforce.com` get through. The configurator's own domain
+(`...--c.scratch.my.salesforce.app`) stayed redacted even with its entry on the list. `sf agent preview` redacts
+both.
+
+The workaround is `pages/SalesCopilotPage`, a Visualforce page on the org domain:
+`/apex/SalesCopilotPage?quoteId=...` (or `?requestId=...`) redirects to the configurator.
+`SalesCopilotAgentSupport.result()` rewrites every configurator link in an action result to this form, so the
+agent only sees links that Slack shows. The page is not an open redirect: it only forwards to the app's start URL,
+with a well-formed id.
+
+`/lightning/app/c__RevenueConfigurator` does not work as a link. It opens the empty Lightning app shell, not the
+configurator.
 
 ## Test without Slack
 
