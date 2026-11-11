@@ -19,6 +19,9 @@ private class SalesCopilotPageRedirectTest {
         Assert.isTrue(forQuote.startsWith(startUrl) && forQuote.endsWith('quoteId=' + quoteId), forQuote);
         Assert.isTrue(forRequest.endsWith('requestId=req_af_1'), forRequest);
         Assert.areEqual(startUrl, forJunk);
+        Assert.areEqual(forQuote, SalesCopilotPageRedirect.targetUrl(new Map<String, String>{ 'id' => quoteId }));
+        Assert.areEqual(forQuote, SalesCopilotPageRedirect.targetUrl(new Map<String, String>{ 'qId' => quoteId }));
+        Assert.areEqual(forRequest, SalesCopilotPageRedirect.targetUrl(new Map<String, String>{ 'id' => 'req_af_1' }));
     }
 
     @IsTest
@@ -43,7 +46,7 @@ private class SalesCopilotPageRedirectTest {
 
         Assert.isTrue(rewritten.contains(other), rewritten);
         if (startUrl != null && !startUrl.contains('?')) {
-            Assert.isTrue(rewritten.contains(SalesCopilotPageRedirect.PAGE_PATH + '?quoteId=0Q0'), rewritten);
+            Assert.isTrue(rewritten.contains(SalesCopilotPageRedirect.PAGE_PATH + '?id=0Q0'), rewritten);
             Assert.isFalse(rewritten.contains(startUrl + '?'), rewritten);
         }
     }
