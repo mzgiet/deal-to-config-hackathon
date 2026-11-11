@@ -41,12 +41,15 @@ public with sharing class SalesCopilotPageRedirect {
             params.get(SalesCopilotConstants.REQUEST_ID_PARAM)
         };
         candidates.addAll(params.values());
+        for (Integer i = 0; i < candidates.size(); i++) {
+            candidates[i] = clean(candidates[i]);
+        }
         for (String value : candidates) {
             if (isQuoteId(value)) {
                 return startUrl + separator + SalesCopilotConstants.QUOTE_ID_PARAM + '=' + value;
             }
         }
-        for (String value : new List<String>{ params.get(ID_PARAM), params.get(SalesCopilotConstants.REQUEST_ID_PARAM) }) {
+        for (String value : new List<String>{ clean(params.get(ID_PARAM)), clean(params.get(SalesCopilotConstants.REQUEST_ID_PARAM)) }) {
             if (value != null && REQUEST_ID.matcher(value).matches()) {
                 return startUrl + separator + SalesCopilotConstants.REQUEST_ID_PARAM + '=' + value;
             }
@@ -67,6 +70,11 @@ public with sharing class SalesCopilotPageRedirect {
         return json
             .replace(startUrl + '?' + SalesCopilotConstants.QUOTE_ID_PARAM + '=', page)
             .replace(startUrl + '?' + SalesCopilotConstants.REQUEST_ID_PARAM + '=', page);
+    }
+
+    /** Drops anything a chat client may glue to the end of a link (a backslash line break, punctuation). */
+    private static String clean(String value) {
+        return value == null ? null : value.replaceAll('[^A-Za-z0-9_-]+$', '');
     }
 
     private static Boolean isQuoteId(String value) {

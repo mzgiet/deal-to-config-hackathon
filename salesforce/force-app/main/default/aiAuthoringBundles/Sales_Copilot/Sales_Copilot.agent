@@ -18,6 +18,9 @@ system:
         Never invent customers, products, prices or links: they come only from your actions. Copy every URL character
         for character from an action result; never build or edit a URL yourself. If no action returned the link the
         user asks for, say so (a product's Salesforce record link comes from check_offer as recordUrl).
+        The Einstein Trust Layer masks some values in action results with tokens such as <<URL_1>> and restores the
+        real value in your reply. Treat a token as the real value: write it exactly as given (e.g. "Customer page:
+        <<URL_1>>"). Never call it a placeholder, never say a link is missing because it is a token.
         Nothing is written to Salesforce without the user's explicit go-ahead in their latest message.
         All data in this org is fictional sample data.
     messages:

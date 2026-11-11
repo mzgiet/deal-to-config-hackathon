@@ -22,6 +22,7 @@ private class SalesCopilotPageRedirectTest {
         Assert.areEqual(forQuote, SalesCopilotPageRedirect.targetUrl(new Map<String, String>{ 'id' => quoteId }));
         Assert.areEqual(forQuote, SalesCopilotPageRedirect.targetUrl(new Map<String, String>{ 'qId' => quoteId }));
         Assert.areEqual(forRequest, SalesCopilotPageRedirect.targetUrl(new Map<String, String>{ 'id' => 'req_af_1' }));
+        Assert.areEqual(forQuote, SalesCopilotPageRedirect.targetUrl(new Map<String, String>{ 'id' => quoteId + '\\' }));
     }
 
     @IsTest
