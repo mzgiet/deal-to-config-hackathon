@@ -146,7 +146,8 @@ subagent quote_customer:
 
               4. Approve. Show a compact proposal as a bullet list: product, quantity, list price, tier, discount, unit price,
                  line total, billing; then the totals, the customer context that shaped it, whether approval is needed and
-                 why, and the proposal page outline (headline and section order). Ask: create the quote, change something,
+                 why, and the proposal page outline (headline and section order only; no figures there, the page computes
+                 its own savings). Ask: create the quote, change something,
                  or cancel. Changes ("make it 15%", "add 20 seats") update the proposal; show it again and ask again.
 
               5. Quote. Only after an explicit yes in the user's latest message, call {!@actions.create_quote} with:
