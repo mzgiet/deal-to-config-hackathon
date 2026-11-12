@@ -3,9 +3,27 @@
 The presenter types into a Slack DM with **Sales Copilot** and opens the links it returns. Show the Agentforce
 agent only. The custom Slack bot exists as well; bring it up only if someone asks.
 
-The reserved demo data is a fresh customer, **Baltic Freight**, and a product that does not exist yet, **Fleet
-Tracking licence**. Nobody uses them in tests, so the agent has no earlier quotes to warn about. The
-`sales-copilot-agent-testing` skill keeps them untouched.
+To prepare, open this repository in Claude Code (or Cursor) and say *"I want to prepare for the demo"*. The
+`sales-copilot-agent-testing` skill checks the org, runs safe rehearsals and walks you through this sheet.
+
+## Demo data (the single source of truth)
+
+The skill reads the reserved names and the expected figures from this table. To change the demo:
+
+1. Edit the table.
+2. Seed the new customer with `scripts/apex/salescopilot-seed-demo-customer.apex`, after changing the values at
+   its top.
+3. Update the prompts and figures in the run sheet below. The skill can recompute them from the live catalog.
+
+| Item | Value | Required state before the demo |
+|---|---|---|
+| Customer | **Baltic Freight**: Business, 150 employees, 60 Cloud Analytics licences, contract ends 2027-01-15 | Exists, **no quotes** |
+| Catalog product (part 1) | **Cloud Backup**: $8 per user per month, 10% off from 50 users | In the catalog, unchanged |
+| New product (part 2) | **Fleet Tracking licence**: $15 per vehicle per month, 10% off from 50 vehicles; the customer runs 80 trucks | **Not** in the catalog |
+| Part 1 figures | 150 × $7.20 = **$1,080** a month; with 15%: 150 × $6.12 = **$918** a month, saving $282 a month or $3,384 a year | |
+| Part 2 figures | 80 × $13.50 = **$1,080** a month, saving $120 a month or $1,440 a year | |
+
+Nobody uses these names in tests. Once the demo has run, the data is used up (see "After the demo").
 
 ## Messages to land
 
@@ -51,7 +69,7 @@ Open the **customer page** link. It shows, in this order:
 |---|---|---|
 | 4 | `They also want fleet tracking for their trucks.` | "Not in the catalog, can't quote it." It offers a ready request to the product manager, with the deal context |
 | 5 | `Yes, hand it to the product manager` | It switches to the product manager role and asks for price, billing, tiers and audience |
-| 6 | `Fleet Tracking licence, $15 per vehicle per month, 10% off from 50 vehicles. Baltic Freight runs 80 trucks.` | "Nothing similar in the catalog". Summary: $15/month, 10% from 50, so **$13.50**, Business. For 80 trucks: **$1,080 / month**. Asks: build it? |
+| 6 | `Fleet Tracking licence, $15 per vehicle per month, 10% off from 50 vehicles. Baltic Freight runs 80 trucks.` | "Nothing similar in the catalog". Summary: $15/month, 10% from 50, so **$13.50**, Business. For 80 trucks: **$1,080 / month**, saving $120. Asks: build it? |
 | 7 | `Build it` | Built. A **configurator page** link and the Salesforce record. Pricing refreshes in the background in about a minute |
 
 Open the **configurator page**: the Fleet Tracking licence card with the tier table, the savings for 80 trucks
@@ -62,14 +80,14 @@ If there is time: wait about a minute, then `Quote it for Baltic Freight, 80 veh
 
 ## Before going on stage
 
-- [ ] **Org state.** Run `skills/sales-copilot-agent-testing/scripts/org-snapshot.sh` from `salesforce/`.
-      Baltic Freight must have **no quotes**, and **Fleet Tracking licence** must not be in the catalog.
+- [ ] **Org state.** Ask the agent to "check the demo data". Baltic Freight must have **no quotes**, and **Fleet
+      Tracking licence** must not be in the catalog.
 - [ ] **Slack.** Reload with Cmd+R and start a **new DM conversation** with Sales Copilot.
 - [ ] **Browser.** Log in to the org, because the page links need a Salesforce session. Zoom to 125%.
 - [ ] **LLM quota.** The last rehearsal ends at least **10 minutes** before the slot, because of the
       per-minute quota.
-- [ ] **Backup tabs,** in case the network or the quota fails on stage: a Cloud Backup customer page and a
-      product page from earlier tests (Acme, Nowak Design).
+- [ ] **Backup tabs,** in case the network or the quota fails on stage: a customer page and a product page from
+      earlier tests (Acme Logistics, Nowak Design).
 - [ ] **A DM, not a channel.** In a channel, replies are "only visible to you" until Share is clicked.
 
 ## Questions from the floor (reserves)
@@ -77,9 +95,9 @@ If there is time: wait about a minute, then `Quote it for Baltic Freight, 80 veh
 | Question | Show |
 |---|---|
 | "Will it create duplicates?" | `Set up Team Chat licence at $6 per user per month for business customers`: it already exists, so the agent shows it and asks |
-| "What if the words differ?" | `Set up cloud backup ("Backup w chmurze") at $9 per user per month for businesses`: the agent finds the similar Cloud Backup |
+| "What if the name differs?" | `Set up Backup Plus at $9 per user per month for businesses`: the agent finds the similar Cloud Backup and asks before creating a second backup product |
 | "Can it break the rules?" | `Bundle Fibre Internet and Starter Router for businesses with 10% off the bundle`: bundles cannot carry a discount, and it explains why |
-| "Polish?" | `Baltic Freight chce backup w chmurze dla wszystkich pracowników` (Baltic Freight wants cloud backup for all employees). The reply comes in Polish; the page stays in English |
+| "Other languages?" | Type the part 1 prompt in another language. The agent replies in that language; the customer page stays in English |
 | "Other channels?" | The custom Slack bot (`/quote`, `/configure`) uses the same Apex and the same pages |
 
 ## After the demo
@@ -88,4 +106,4 @@ Parts 1 and 2 used up the reserved data. To run the demo again:
 
 - delete Baltic Freight's quotes and the Fleet Tracking build (`scripts/apex/salescopilot-reset-request.apex`
   with its requestId); this needs approval because it deletes records;
-- or choose a new customer and product name, and update this file and the skill.
+- or choose a new customer and product name: edit "Demo data" and the seed script, and seed again.
