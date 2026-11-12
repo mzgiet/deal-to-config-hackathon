@@ -98,6 +98,30 @@ scratch org on 2026-11-11:
 | `…Claude45Opus`, `…Claude46Opus`, `…Claude47Opus`, `…Claude5Opus`, `…Claude55Opus` | Name accepted, but the reply is a canned "Live Chat support is currently unavailable". The trace shows `LLM_GATEKEEPER … limit=0 … org_status:Trial&model:advanced-models`: Opus counts as an advanced model, and the trial org has no quota for it |
 | Gemini (`VertexAIGemini25Pro`, `…3Pro`, `…35Pro`) | Not available |
 
+### If Slack stops answering
+
+On 12 November the agent on the first PoC org (instance USA30S) answered every Slack message with "I'm sorry,
+something went wrong", while it still worked in the Builder preview and in `sf agent preview`. No Apex log ever
+appeared for Slack messages, so the requests never reached the agent's actions. The timing matches Salesforce
+incident 20004592: on 11 November, after the last working Slack test, the instance was rolled back to the previous
+release. Reconnecting Slack, reinstalling the agent and publishing a brand-new agent did not help. The demo moved to
+a new scratch org (`power-power-8138`).
+
+The order that works when connecting an org:
+
+1. Connect the org from Slack: Slack sends the request, you approve it in Setup, and Slack activates it.
+2. In Setup → Connected Apps OAuth Usage, **Install** the Slack app before anyone connects their account.
+   Installing it afterwards invalidates the tokens already issued.
+3. Each person connects their own Salesforce account in Slack. Auto-mapping fails when two Salesforce users share
+   an email address, for example a person and an integration user; that person connects manually.
+4. Install the agent in Slack (Manage Agentforce → Install Agent).
+5. **Deactivate and activate the agent**, then restart Slack. Without this, Slack shows "You don't have permission
+   to message this app".
+
+To tell a Slack problem from an agent problem, set a trace flag on your user (`sf apex tail log`) and send a
+message: no Apex log means the request never reached Salesforce. Check the instance at
+`https://api.status.salesforce.com/v1/instances/<INSTANCE>/status`.
+
 ## Test without Slack
 
 A published Employee Agent cannot be previewed by name (`Invalid user ID provided on start session`). Preview

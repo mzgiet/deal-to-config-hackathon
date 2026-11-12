@@ -19,12 +19,16 @@ in English.
 
 ## 0. Find the org (every session)
 
-The PoC org is the scratch org at `https://flow-dream-5125-dev-ed.scratch.my.salesforce.com`. Different people
-have different CLI aliases for it.
+The demo org is the scratch org at `https://power-power-8138-dev-ed.scratch.my.salesforce.com` (instance
+USA1154S, set up on 12 November). Different people have different CLI aliases for it.
+
+The first PoC org, `https://flow-dream-5125-dev-ed.scratch.my.salesforce.com`, is retired for the demo. Its
+Agentforce-in-Slack connection stopped answering after Salesforce rolled its instance back (incident 20004592).
+Do not use it for demo work.
 
 1. Run `sf org list --json`, find the entry whose `instanceUrl` is that org, and use its alias as `<org>` from here
    on.
-2. If none matches, ask the user to log in with `sf org login web -r https://flow-dream-5125-dev-ed.scratch.my.salesforce.com -a <alias>`.
+2. If none matches, ask the user to log in with `sf org login web -r https://power-power-8138-dev-ed.scratch.my.salesforce.com -a <alias>`.
 3. Never run a command against any other org.
 
 `converse.sh` takes the alias through `ORG=<org>`, and `org-snapshot.sh` takes it as its argument. Agent preview

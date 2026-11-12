@@ -15,6 +15,9 @@ The skill reads the reserved names and the expected figures from this table. To 
    its top.
 3. Update the prompts and figures in the run sheet below. The skill can recompute them from the live catalog.
 
+Org: **`https://power-power-8138-dev-ed.scratch.my.salesforce.com`** (the first PoC org, `flow-dream-5125…`, is
+retired for the demo).
+
 | Item | Value | Required state before the demo |
 |---|---|---|
 | Customer | **Baltic Freight**: Business, 150 employees, 60 Cloud Analytics licences, contract ends 2027-01-15 | Exists, **no quotes** |
@@ -92,6 +95,46 @@ If there is time: wait about a minute, then `Quote it for Baltic Freight, 80 veh
 - [ ] **Backup tabs,** in case the network or the quota fails on stage: a customer page and a product page from
       earlier tests (Acme Logistics, Nowak Design).
 - [ ] **A DM, not a channel.** In a channel, replies are "only visible to you" until Share is clicked.
+
+## Plan B: the same agent in the Agentforce Builder preview
+
+Use it when the agent does not answer in Slack. It is the same agent, the same seven prompts and the same figures.
+Only the window changes: the conversation runs in the Builder's preview panel on the org, where the page links
+are clickable.
+
+### When to switch
+
+- **Before the slot:** if the last Slack rehearsal failed, start in the preview and do not mention Slack trouble.
+- **On stage:** if message 1 gets no reply in Slack within **45 seconds**, or the reply is an error, say
+  *"Let me show you the same agent directly in Salesforce"* and switch to the preview tab. Do not retry in Slack.
+  Records an earlier message already created stay; the preview conversation starts again from message 1 (or from
+  message 4 if the quote was already created).
+
+### Prepare (in addition to "Before going on stage")
+
+- [ ] **Builder tab.** Setup → Agentforce Agents → Sales Copilot → open in Agentforce Builder, on the version that
+      is active. Turn on live actions for the preview (otherwise nothing is created and the links lead nowhere).
+- [ ] **Fresh preview.** Restart the preview conversation after the last rehearsal, so it starts empty.
+- [ ] **Rehearse once in the preview** with all seven prompts, then reset. Check that both page links open.
+- [ ] **Tab order:** Slack DM, Builder preview, an empty tab for the pages, then the backup tabs.
+- [ ] **Zoom.** The preview panel is narrow: zoom to 125–150% or collapse the Builder's side panels.
+
+### What to say differently
+
+The run sheet above stays as it is, except:
+
+| Moment | Say instead |
+|---|---|
+| 0:00–0:30 | "After a call the rep needs an offer the same day. Here it's a conversation with an agent in Salesforce, in plain English." |
+| Message 4, "Any channel" | "The agent is one definition in Salesforce. Slack, Teams or a custom bot are connection settings on top of it, and we connected it to Slack. We also built a custom Slack bot on the same Apex." |
+| If asked "Why not in Slack?" | "The Slack connection is configured on this agent; today we show it where it runs, so you can see the actions and the records next to it." |
+
+Do not open the trace or the topic configuration unless asked: they take time and pull attention from the pages.
+
+### Plan C: if the preview fails too
+
+Show the backup tabs (a customer page and a product page from earlier tests) and, if one was recorded, the screen
+recording of a full rehearsal. Talk through the seven messages from the run sheet over them.
 
 ## Questions from the floor (reserves)
 
