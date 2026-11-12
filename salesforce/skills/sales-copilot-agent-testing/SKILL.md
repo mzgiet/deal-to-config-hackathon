@@ -1,8 +1,8 @@
 ---
 name: sales-copilot-agent-testing
-description: "Prepares, runs and reviews test cases for the Sales Copilot Agentforce agent (Slack, sf agent preview), and walks the presenter through preparing and rehearsing the live demo. It starts from what the org holds now (catalog, customers, open quotes, recent builds), so tests do not repeat earlier ones, never touch the data reserved for the demo, and come with expected figures worked out from the live catalog. TRIGGER when: the user wants to prepare for, rehearse, check or reset the demo of the Agentforce agent ('I want to prepare for the demo', 'check the demo data', 'run a rehearsal'); wants test cases, a test plan, prompts or a regression run for the agent; asks what to test next; changed Sales_Copilot.agent or the SalesCopilotAgent* actions and wants them checked; wants to change the demo customer, product or prompts. DO NOT TRIGGER when: testing the Node Slack bot in src/, building or quoting for real through Cursor (sales-copilot-build, sales-copilot-sell), or editing the configurator UI."
+description: "Prepares, runs and reviews test cases for the Sales Copilot Agentforce agent (Slack, sf agent preview), and walks the presenter through preparing and rehearsing the live demo. It starts from what the org holds now (catalog, customers, open quotes, recent builds), so tests do not repeat earlier ones, keep the demo data for demo rehearsals (reset after each run), and come with expected figures worked out from the live catalog. TRIGGER when: the user wants to prepare for, rehearse, check or reset the demo of the Agentforce agent ('I want to prepare for the demo', 'check the demo data', 'run a rehearsal'); wants test cases, a test plan, prompts or a regression run for the agent; asks what to test next; changed Sales_Copilot.agent or the SalesCopilotAgent* actions and wants them checked; wants to change the demo customer, product or prompts. DO NOT TRIGGER when: testing the Node Slack bot in src/, building or quoting for real through Cursor (sales-copilot-build, sales-copilot-sell), or editing the configurator UI."
 metadata:
-  version: "0.2"
+  version: "0.3"
   domains: ["Salesforce", "Agentforce", "Revenue Cloud", "Sales Copilot PoC"]
 ---
 
@@ -11,7 +11,8 @@ metadata:
 The agent is described in `docs/agentforce.md` and the live demo in `salesforce/demo/agentforce-demo.md`. It has two
 roles (sales rep and product manager) and five actions over the Apex services. It **writes real records** when the
 user approves a quote ("Yes, create the quote") or a build ("Build it"). So every session starts from what the org
-holds now, and nothing may touch the data reserved for the demo.
+holds now. The data reserved for the demo may be used for rehearsals of the demo itself, and only if it is reset
+afterwards with `scripts/apex/salescopilot-reset-demo.apex`.
 
 Run commands from `salesforce/`. Talk to the user in their language. Everything written to the repository stays
 in English.
@@ -45,20 +46,20 @@ Report each check as OK or not. If one fails, propose a fix and wait for a yes b
 
 - **The customer is missing:** run `sf apex run -f scripts/apex/salescopilot-seed-demo-customer.apex -o <org>`.
   It is idempotent and adds fictional data only.
-- **The customer has quotes, or the new product exists:** the demo data was used. Either delete those records
-  (with explicit approval, because it deletes records), or switch to a new customer and product name (see "Change
-  the demo").
+- **The customer has quotes, or the new product exists:** the demo data was used, probably by a rehearsal. Offer
+  the reset and run it after a yes, because it deletes records:
+  `sf apex run -f scripts/apex/salescopilot-reset-demo.apex -o <org>`. It deletes the customer's quotes and
+  opportunities and the demo product's build, then refreshes pricing. Run the snapshot again to confirm.
 
 **Step 2. The agent is current.** In the snapshot, compare the active `BotVersion` with what the local bundle
 publishes. If `Sales_Copilot.agent` changed and was not published, offer to run validate, publish and activate the
 new version (see "Change the agent").
 
-**Step 3. Dry rehearsal.** Run the demo prompts in preview **up to the approval questions only**. Never send "Yes,
-create the quote" or "Build it" with the reserved data.
+**Step 3. Dry rehearsal (optional, writes nothing).** Run the demo prompts in preview up to the approval
+questions, to check the figures and wording before touching Slack:
 
 ```bash
 ORG=<org> skills/sales-copilot-agent-testing/scripts/converse.sh "<part 1, prompt 1>" "<part 1, prompt 2>"
-ORG=<org> skills/sales-copilot-agent-testing/scripts/converse.sh "<part 2, prompts 4-6, with the customer named in prompt 4>"
 python3 skills/sales-copilot-agent-testing/scripts/trace-summary.py
 ```
 
@@ -66,13 +67,15 @@ Compare every figure and every action with the run sheet: the actions called, th
 and the page sections. Point out each difference and propose a fix (the agent's instructions, the prompt, or the
 figures in the sheet).
 
-**Step 4. Optional full rehearsal with writes.** Offer it on a **copy**, never on the reserved names:
+**Step 4. Full rehearsal in Slack, then reset.** This is the real practice run: the exact prompts, on the reserved
+data, with "Yes, create the quote" and "Build it".
 
-- use Acme Logistics or Nowak Design (they already have test quotes, so the agent will mention duplicates);
-- or seed a second fresh customer, with a new product name such as "<Product> T<MMDD>";
-- in Slack, start a new DM conversation for it.
+1. Use a new DM conversation with Sales Copilot.
+2. Ask the user to paste the replies and screenshots of both pages, and check them against the run sheet.
+3. Then reset with `scripts/apex/salescopilot-reset-demo.apex`, after a yes, and confirm with the snapshot.
 
-Ask the user to paste the replies and screenshots of the pages. Check them against the run sheet.
+The same full run also works in preview: put all seven prompts in one `converse.sh` call. Rehearse as often as
+needed, but **always reset** after each run, and finish at least 10 minutes before the demo.
 
 **Step 5. Hand over the checklist.** Walk through "Before going on stage" in the run sheet, including the
 **10-minute** gap after the last rehearsal (the per-minute LLM quota) and a new DM conversation.
@@ -100,8 +103,8 @@ For details, call the endpoints the agent uses:
 
 ### 2. Names
 
-- **Reserved:** everything in the "Demo data" table of `salesforce/demo/agentforce-demo.md`. Never build, quote or
-  check these.
+- **Reserved:** everything in the "Demo data" table of `salesforce/demo/agentforce-demo.md`. Use these only in a
+  rehearsal of the demo, and reset afterwards. Never use them in other tests.
 - **A new product in a test:** a name that is not in the snapshot, plus a short unique suffix, for example "Asset
   Library licence T1112".
 - **Customers in tests:** Acme Logistics, Nowak Design or Anna Testowa. They already have test quotes, so expect
@@ -173,10 +176,10 @@ Report in the user's language:
 
 ## Change the demo
 
-- **Another customer:** change the values at the top of `scripts/apex/salescopilot-seed-demo-customer.apex`, run
-  it, and update the "Demo data" table.
+- **Another customer:** change the values at the top of `scripts/apex/salescopilot-seed-demo-customer.apex` and
+  `scripts/apex/salescopilot-reset-demo.apex`, run the seed, and update the "Demo data" table.
 - **Another product, or other prices:**
-  1. Check the name is new: `check_offer` in preview, or the snapshot.
+  1. Check the name is new: `check_offer` in preview, or the snapshot. Put the name in the reset script too.
   2. Update the table and the prompts.
   3. Recompute the figures with the pricing rules above, and confirm them in a dry rehearsal.
 - **Other prompts or wording:** edit the run sheet, then dry-rehearse it (Step 3).

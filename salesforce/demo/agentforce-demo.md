@@ -23,7 +23,10 @@ The skill reads the reserved names and the expected figures from this table. To 
 | Part 1 figures | 150 × $7.20 = **$1,080** a month; with 15%: 150 × $6.12 = **$918** a month, saving $282 a month or $3,384 a year | |
 | Part 2 figures | 80 × $13.50 = **$1,080** a month, saving $120 a month or $1,440 a year | |
 
-Nobody uses these names in tests. Once the demo has run, the data is used up (see "After the demo").
+Rehearse with exactly this data, as often as needed, and reset after every run:
+`sf apex run -f scripts/apex/salescopilot-reset-demo.apex -o <org>`. The reset deletes the customer's quotes and
+opportunities and the demo product's build, keeps the customer and its services, and refreshes pricing. Other
+tests do not use these names.
 
 ## Messages to land
 
@@ -80,8 +83,8 @@ If there is time: wait about a minute, then `Quote it for Baltic Freight, 80 veh
 
 ## Before going on stage
 
-- [ ] **Org state.** Ask the agent to "check the demo data". Baltic Freight must have **no quotes**, and **Fleet
-      Tracking licence** must not be in the catalog.
+- [ ] **Org state.** After the last rehearsal, run the reset, then ask the agent to "check the demo data".
+      Baltic Freight must have **no quotes**, and **Fleet Tracking licence** must not be in the catalog.
 - [ ] **Slack.** Reload with Cmd+R and start a **new DM conversation** with Sales Copilot.
 - [ ] **Browser.** Log in to the org, because the page links need a Salesforce session. Zoom to 125%.
 - [ ] **LLM quota.** The last rehearsal ends at least **10 minutes** before the slot, because of the
@@ -102,8 +105,5 @@ If there is time: wait about a minute, then `Quote it for Baltic Freight, 80 veh
 
 ## After the demo
 
-Parts 1 and 2 used up the reserved data. To run the demo again:
-
-- delete Baltic Freight's quotes and the Fleet Tracking build (`scripts/apex/salescopilot-reset-request.apex`
-  with its requestId); this needs approval because it deletes records;
-- or choose a new customer and product name: edit "Demo data" and the seed script, and seed again.
+Run the reset (`scripts/apex/salescopilot-reset-demo.apex`), and the demo is ready to run again. For a different
+customer or product, edit "Demo data", and change the values at the top of the seed and reset scripts.
