@@ -13,7 +13,33 @@ sold together. To show them something concrete, the rep raises a ticket and
 waits for a developer to configure it in Salesforce. That takes days, and in
 the meantime the deal cools.
 
-## What Sales Copilot does
+## What Sales Copilot is: an Agentforce agent in Slack
+
+The rep chats with **Sales Copilot**, a Salesforce-native Agentforce agent, in a Slack DM, in plain English.
+Everything runs on Salesforce:
+
+- **It quotes a customer.** It reads the customer and the catalog for their segment, then prices the lines with
+  volume tiers and discounts. After an explicit yes it creates a Revenue Cloud quote. A discount above the rep's
+  limit sends the quote for manager approval.
+- **It builds what is missing.** When the catalog lacks a product, it hands the request to the product manager
+  role. It checks the catalog for duplicates, then builds the product, the prices and the tiers in Revenue Cloud.
+- **It composes a page for the customer** on the fly, in a Multi-Framework React app on Salesforce: savings, why
+  it fits, the offer, the assumptions. The page is built from template blocks the agent picks for that deal.
+
+```
+Slack DM ─► Agentforce Employee Agent (Agent Script, Claude Sonnet 5.5 inside the Einstein Trust Layer)
+         ─► invocable Apex actions ─► deterministic Apex services ─► Revenue Cloud
+         ◄─ proposal, quote / product, link to the customer page (Multi-Framework app)
+```
+
+- **How it works and how to deploy it:** [docs/agentforce.md](docs/agentforce.md).
+- **The live demo:** [salesforce/demo/agentforce-demo.md](salesforce/demo/agentforce-demo.md).
+- **The agent itself:** `salesforce/force-app/main/default/aiAuthoringBundles/Sales_Copilot/`.
+
+The same skills and Apex services also run behind two other channels, so the agent can sit wherever sales works:
+the custom Slack bot described below, and Cursor or Claude Code (`salesforce/skills/`).
+
+## Also built: the custom Slack bot (`/quote`, `/configure`)
 
 Two roles, one Slack:
 

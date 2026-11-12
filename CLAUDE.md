@@ -195,17 +195,22 @@ error in the demo.
 
 ## The demo path
 
-Five minutes total: one minute on the business problem, one on the flow, three on
-live demo. The core path that must work on screen:
+Decided on 12 November: the live demo shows **only the Agentforce agent** in a
+Slack DM. The custom bot is mentioned only if someone asks. The run sheet, with
+its prompts, expected figures and reserved demo data, is
+`salesforce/demo/agentforce-demo.md`. The presenter's briefing prompt is
+`salesforce/demo/agentforce-demo-briefing.md`.
 
-1. Rep types `/configure ...` in a channel
-2. Bot acknowledges, then posts the card: products, pricing tiers, availability,
-   anything it had to assume
-3. Rep clicks **Build it**
-4. Bot replies in thread with a link to the configurator
+The core path that must work on screen:
 
-Prioritise this path. Extras are fine if they make the demo or the submission
-stronger and do not put this path at risk.
+1. Sales rep: customer + request → proposal → a discount above the limit →
+   **Yes, create the quote** → a Needs Review quote and the customer page.
+2. Product the catalog lacks → hand-off to the product manager → price in one
+   sentence → **Build it** → the configurator page.
+
+Prioritise this path. Rehearse it on the reserved data and reset afterwards with
+`salesforce/scripts/apex/salescopilot-reset-demo.apex`. The custom bot path
+(`/configure` → card → Build it) must keep working as the fallback.
 
 ## House rules (fixed)
 
